@@ -47,6 +47,7 @@ import {
   parseClasses,
   passivePerception,
   profBonus,
+  parseDice,
   rollDice,
   saveBonus,
   skillBonus,
@@ -77,23 +78,9 @@ type SpellDetail = {
 
 type LogEntry = RollResult & { label: string; at: number };
 
+// Dice the 3D roller has meshes for; anything else rolls instantly.
 const ANIMATED_FACES = [4, 6, 8, 10, 12, 20, 100];
-
-function specsForResult(result: RollResult) {
-  const faces = result.dieFaces;
-  if (!ANIMATED_FACES.includes(faces)) return [];
-  if (faces === 100) {
-    return result.rolls.flatMap((v) => [
-      { faces: 10, value: Math.floor(v / 10) % 10, percentile: true },
-      { faces: 10, value: v % 10, percentile: false },
-    ]);
-  }
-  return result.rolls.map((v) => ({
-    faces,
-    value: faces === 10 ? v % 10 : v,
-    percentile: false,
-  }));
-}
+const MAX_ANIMATED_DICE = 20;
 
 const s = (v: unknown) => (v == null ? "" : String(v));
 const n = (v: unknown) => {
@@ -144,21 +131,28 @@ export default function SheetClient({
     };
   }, [data, saveState, id]);
 
-  const roll = useCallback((label: string, expr: string) => {
+  const roll = useCallback(async (label: string, expr: string) => {
+    let landed: number[] | null = null;
     try {
-      const result = rollDice(expr);
-      setLog((prev) => [{ ...result, label, at: Date.now() }, ...prev].slice(0, 30));
-      // 3D dice animation — the physics is theatre, the roll above is the
-      // result; the overlay remaps the landed faces to these values.
-      const specs = specsForResult(result);
-      if (specs.length > 0) {
-        import("@/lib/dice3d")
-          .then((m) => m.animateRoll(specs))
-          .catch(() => {});
+      const { count, faces } = parseDice(expr);
+      if (ANIMATED_FACES.includes(faces) && count <= MAX_ANIMATED_DICE) {
+        // The physics decides the result: wait for the dice to settle.
+        const { rollPhysical } = await import("@/lib/diceBox");
+        landed = await rollPhysical(count, faces);
       }
+    } catch {
+      // fall through to a plain random roll
+    }
+    try {
+      const result = rollDice(expr, landed ?? undefined);
+      setLog((prev) => [{ ...result, label, at: Date.now() }, ...prev].slice(0, 30));
     } catch {
       // unparsable damage strings etc. — ignore
     }
+  }, []);
+
+  useEffect(() => {
+    import("@/lib/diceBox").then((m) => m.preloadDiceBox()).catch(() => {});
   }, []);
 
   const classes = useMemo(() => parseClasses(data), [data]);
@@ -563,6 +557,13 @@ export default function SheetClient({
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* 3D dice overlay — dice-box draws its canvas in here */}
+      <div
+        id="dice-box"
+        aria-hidden
+        className="pointer-events-none fixed inset-0 z-50 [&>canvas]:h-full [&>canvas]:w-full"
+      />
 
       <div className="fixed top-1/2 right-1.5 z-40 hidden -translate-y-1/2 flex-col gap-1.5 lg:flex">
         {[4, 6, 8, 10, 12, 20, 100].map((f) => (

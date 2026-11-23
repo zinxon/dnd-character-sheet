@@ -254,13 +254,29 @@ export type RollResult = {
   dieFaces: number;
 };
 
+// Parse a roll expression into its dice: "2d6+3" → 2 × d6, +3.
+// Plain "20" is a d20 check with that bonus.
+export function parseDice(exprRaw: string): { count: number; faces: number; bonus: number } {
+  const expr = exprRaw.trim().toLowerCase().replace(/\s+/g, "");
+  if (/^[+-]?\d+$/.test(expr)) return { count: 1, faces: 20, bonus: parseInt(expr, 10) };
+  const m = expr.match(/^(\d*)d(\d+)([+-]\d+)?$/);
+  if (!m) throw new Error(`Cannot parse dice: ${exprRaw}`);
+  return {
+    count: parseInt(m[1] || "1", 10),
+    faces: parseInt(m[2], 10),
+    bonus: m[3] ? parseInt(m[3], 10) : 0,
+  };
+}
+
 // Dice roller: "2d6+3", "d20", "1d8-1", plain "20" (a d20 check).
-export function rollDice(exprRaw: string): RollResult {
+// Pass `landed` to use die values that were already rolled (the 3D dice);
+// otherwise each die is rolled with Math.random.
+export function rollDice(exprRaw: string, landed?: number[]): RollResult {
   const expr = exprRaw.trim().toLowerCase().replace(/\s+/g, "");
   const check = expr.match(/^[+-]?\d+$/);
   if (check) {
     const bonus = parseInt(expr, 10);
-    const roll = 1 + Math.floor(Math.random() * 20);
+    const roll = landed?.[0] ?? 1 + Math.floor(Math.random() * 20);
     return {
       expr: `d20${bonus ? fmt(bonus) : ""}`,
       total: roll + bonus,
@@ -275,7 +291,10 @@ export function rollDice(exprRaw: string): RollResult {
   const count = parseInt(m[1] || "1", 10);
   const faces = parseInt(m[2], 10);
   const bonus = m[3] ? parseInt(m[3], 10) : 0;
-  const rolls = Array.from({ length: count }, () => 1 + Math.floor(Math.random() * faces));
+  const rolls =
+    landed && landed.length === count
+      ? landed
+      : Array.from({ length: count }, () => 1 + Math.floor(Math.random() * faces));
   const total = rolls.reduce((a, b) => a + b, 0) + bonus;
   const nat =
     faces === 20 && count === 1

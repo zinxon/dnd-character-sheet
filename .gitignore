@@ -2,4 +2,17 @@ node_modules
 dist
 .next
 
-.env*.local
+# env files & secrets — never commit
+.env
+.env*
+!.env.example
+client_secret*.json
+*.pem
+*.key
+*.p12
+credentials*.json
+service-account*.json
+
+# copied from @3d-dice/dice-box on postinstall
+public/assets/dice-box
+.gstack/

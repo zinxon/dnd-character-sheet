@@ -31,6 +31,7 @@
   "include": [
     "src",
     "vite.config.ts",
+    "types/**/*.d.ts",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
