@@ -538,6 +538,31 @@ export default function SheetClient({
         </TabsContent>
       </Tabs>
 
+      {log.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setDiceOpen(true)}
+          className="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full border bg-background px-4 py-2 shadow-lg"
+          aria-label="Latest roll — open dice roller"
+        >
+          <span
+            key={log[0].at}
+            className="text-xl font-medium [animation:rollpop_.2s_ease-out]"
+          >
+            {log[0].total}
+          </span>
+          <span className="max-w-56 truncate text-sm text-muted-foreground">
+            {log[0].label} · {log[0].detail}
+            {log[0].nat === "crit"
+              ? " · critical!"
+              : log[0].nat === "fumble"
+                ? " · fumble"
+                : ""}
+          </span>
+        </button>
+      )}
+      <style>{`@keyframes rollpop { from { transform: scale(1.35); } to { transform: scale(1); } }`}</style>
+
       <DiceDialog open={diceOpen} onOpenChange={setDiceOpen} roll={roll} log={log} />
       <LevelUpDialog
         open={levelUpOpen}
