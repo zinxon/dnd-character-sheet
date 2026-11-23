@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@ui-sdk/react/tabs";
 import {
@@ -9,13 +11,14 @@ import {
   SelectValue,
 } from "@ui-sdk/react/select";
 
-// Smoke test only: proves React 19 + Vercel UI SDK (Tabs, Select) build and
-// run together. The real sheet is built in stages on top of this scaffold.
-export default function App() {
+// Smoke test only: proves Next.js + React 19 + Vercel UI SDK (Tabs, Select)
+// build, server-render and hydrate together. The real sheet is built in
+// stages on top of this scaffold.
+export default function SheetSmoke() {
   const [character, setCharacter] = useState<string | null>("james");
   return (
     <main>
-      <h1>D&D character sheet — React version</h1>
+      <h1>D&D character sheet — Next.js version</h1>
       <Select value={character} onValueChange={(value) => setCharacter(value)}>
         <SelectLabel>Character</SelectLabel>
         <SelectTrigger>
