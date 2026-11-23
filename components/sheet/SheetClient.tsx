@@ -584,7 +584,8 @@ export default function SheetClient({
         <button
           type="button"
           onClick={() => setDiceOpen(true)}
-          className="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full border bg-background px-4 py-2 shadow-lg"
+          // Mobile: centre of the screen. Desktop: top-right, below the header.
+          className="fixed top-1/2 left-1/2 z-50 flex -translate-x-1/2 -translate-y-1/2 items-center gap-3 rounded-full border bg-background px-4 py-2 shadow-lg lg:top-16 lg:right-4 lg:left-auto lg:translate-x-0 lg:translate-y-0"
           aria-label="Latest roll — open dice roller"
         >
           <span
