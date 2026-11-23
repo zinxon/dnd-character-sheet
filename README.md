@@ -1,23 +1,42 @@
-# D&D Character Sheet — Modified Version 角色卡（改版）
+# D&D character sheet — React version (1 to 1 migration, in progress)
 
-An offline, auto-calculating D&D 5e (2014) character sheet in a single HTML file.
-一份離線、自動計算嘅 D&D 5e（2014）角色卡，全部內容喺一個 HTML 檔案入面。
+The classic single-file sheet on `main` is the reference. This branch is its
+1 to 1 migration to Next.js 16 (React 19) + the Vercel UI SDK (`@ui-sdk/react` +
+`@ui-sdk/core`), built in stages and verified against the classic sheet at
+each stage. The classic version stays live everywhere until this reaches
+parity.
 
-Based on the open-source project [BaesTheorem/dnd-character-sheet](https://github.com/BaesTheorem/dnd-character-sheet).
-基於開源項目 BaesTheorem/dnd-character-sheet 改作。
+Stages:
+1. Data layer — extract the sourcebook data and bilingual (English /
+   Traditional Chinese) text maps from the classic file
+2. Character library — create / import / export / delete, save and load
+3. Sheet core — abilities, saves, skills, combat, dice roller, rests,
+   conditions, death saves
+4. Level up — class progression, ASI / feats, hit points
+5. Spells, inventory, infusions, homebrew, print
 
-## What's in this version 呢個版本有咩唔同
+## Run it
 
-- **Two characters included 附帶兩個角色**
-  - **James** — Human Wizard (School of Evocation) 7, imported from D&D Beyond
-  - **Tempest Lightning Mage (Lv 8 Build)** — Cleric 3 (Tempest Domain) / Wizard 5 (Order of Scribes)
-- **Bilingual 雙語** — English first, Traditional Chinese behind it, for labels and long descriptions alike（英文行先，繁體中文喺後，標籤同長文描述都有）
-- **D&D Beyond style UI** — light-grey panels, red accents, ability-score tiles（跟 D&D Beyond 角色卡嘅介面風格）
+```bash
+npm install
+npm run dev
+npm run build   # Next.js production build
+npm run start   # serve the production build
+```
 
-## How to use 點用
+## Auth (Better Auth + Google)
 
-Download `index.html` and open it in any browser — no install, no server needed. It works fully offline.
-下載 `index.html`，用任何瀏覽器開就得，唔使安裝、唔使伺服器，完全離線可用。
+Better Auth is wired to the same Neon database (tables `user`, `session`,
+`account`, `verification`, created with the Better Auth CLI migrate command).
+The Google provider turns on only when these env vars are set, so the app
+runs without them:
 
-Characters auto-save in that browser. Use the sheet's **Save** button to download a copy with your characters baked in.
-角色會自動儲存喺嗰個瀏覽器入面；㩒角色卡嘅 **Save** 掣可以下載一份連角色一齊封裝嘅副本。
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` — from the Google Cloud console
+  (OAuth client, redirect URI `<BETTER_AUTH_URL>/api/auth/callback/google`)
+- `BETTER_AUTH_SECRET` — a random 32+ character secret
+- `BETTER_AUTH_URL` — the app's base URL
+
+Profile linking: once a user signs in with Google, their characters are the
+`characters` rows owned by their Better Auth user id. The two seeded rows
+(owner `zinxon`) get claimed by the first sign-in — that claim step ships
+with the character library stage.
