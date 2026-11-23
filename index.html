@@ -11117,6 +11117,7 @@
     hitDieFaces = (data && typeof data.hitDieFaces === "number") ? data.hitDieFaces : null;
     if(hitDieFaces == null && data){ const m = String(data.hitdice||"").match(/d(\d+)/); if(m) hitDieFaces = +m[1]; }   // legacy "5d8" → 8
     charClasses = (data && Array.isArray(data.charClasses)) ? data.charClasses : [];
+    if(characterCreated && !charClasses.length && data && data.classlevel) charClasses = parseClassLevelStr(data.classlevel);   // repair: a character imported outside the builder (e.g. from D&D Beyond) is "created" but carries no saved class build, so Level Up / Edit Character refused to open — rebuild the build from the "Class & Level" line
     charCustomBg = (data && data.charCustomBg && typeof data.charCustomBg === "object") ? data.charCustomBg : null;
     charBgChoices = (data && data.charBgChoices && typeof data.charBgChoices === "object") ? data.charBgChoices : null;
     charRaceChoices = (data && data.charRaceChoices && typeof data.charRaceChoices === "object") ? data.charRaceChoices : null;
@@ -12179,6 +12180,24 @@
   // you. nSpells stays the "free" target shown as a hint. (Cantrips are always a fixed known count — capped normally.)
   function spellCap(plan){ return (plan.mode === "spellbook" && characterCreated) ? Infinity : plan.nSpells; }
   function buildClassLevelStr(list){ return (list||[]).map(c => `${c.name} ${c.level}${c.sub?` (${c.sub})`:""}`).join(", "); }
+  function parseClassLevelStr(str){   // inverse of buildClassLevelStr — also accepts the D&D Beyond order "Name (Sub) Level"; class/subclass names are canonicalised against DATA so the builder's exact-match lookups succeed
+    const out = [];
+    String(str || "").split(",").forEach(seg => {
+      seg = seg.trim(); if(!seg) return;
+      let name = "", sub = "", level = 0, m = seg.match(/^(.+?)\s+(\d{1,2})(?:\s*\((.+)\))?$/);   // "Wizard 7 (School of Evocation)"
+      if(m){ name = m[1].trim(); level = parseInt(m[2], 10); sub = (m[3] || "").trim(); }
+      else if(m = seg.match(/^(.+?)\s*\((.+)\)\s+(\d{1,2})$/)){ name = m[1].trim(); sub = m[2].trim(); level = parseInt(m[3], 10); }   // "Wizard (School of Evocation) 7"
+      if(!name || !(level >= 1 && level <= 20)) return;
+      if(DATA && Array.isArray(DATA.classes)){
+        const cls = DATA.classes.find(c => c.name.toLowerCase() === name.toLowerCase());
+        if(cls){ name = cls.name;
+          if(sub && Array.isArray(cls.subclasses)){ const sc = cls.subclasses.find(x => (x.name || "").toLowerCase() === sub.toLowerCase()); if(sc) sub = sc.name; }
+        }
+      }
+      out.push({name, level, sub, subOpts:{}});
+    });
+    return out;
+  }
   function reqStr(req){          // "Str 13", "Str 13 or Dex 13", "Str 13 and Cha 13"
     if(!req) return "";
     const one = o => Object.keys(o).filter(k => ABBR[k]).map(k => ABBR[k]+" "+o[k]).join(" and ");
