@@ -249,6 +249,9 @@ export type RollResult = {
   total: number;
   detail: string;
   nat?: "crit" | "fumble" | null;
+  // Individual die values and the die size, for the 3D dice animation.
+  rolls: number[];
+  dieFaces: number;
 };
 
 // Dice roller: "2d6+3", "d20", "1d8-1", plain "20" (a d20 check).
@@ -263,6 +266,8 @@ export function rollDice(exprRaw: string): RollResult {
       total: roll + bonus,
       detail: `${roll}${bonus ? ` ${fmt(bonus)}` : ""}`,
       nat: roll === 20 ? "crit" : roll === 1 ? "fumble" : null,
+      rolls: [roll],
+      dieFaces: 20,
     };
   }
   const m = expr.match(/^(\d*)d(\d+)([+-]\d+)?$/);
@@ -285,6 +290,8 @@ export function rollDice(exprRaw: string): RollResult {
     total,
     detail: `[${rolls.join(", ")}]${bonus ? ` ${fmt(bonus)}` : ""}`,
     nat,
+    rolls,
+    dieFaces: faces,
   };
 }
 

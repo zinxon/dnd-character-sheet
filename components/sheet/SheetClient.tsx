@@ -77,6 +77,24 @@ type SpellDetail = {
 
 type LogEntry = RollResult & { label: string; at: number };
 
+const ANIMATED_FACES = [4, 6, 8, 10, 12, 20, 100];
+
+function specsForResult(result: RollResult) {
+  const faces = result.dieFaces;
+  if (!ANIMATED_FACES.includes(faces)) return [];
+  if (faces === 100) {
+    return result.rolls.flatMap((v) => [
+      { faces: 10, value: Math.floor(v / 10) % 10, percentile: true },
+      { faces: 10, value: v % 10, percentile: false },
+    ]);
+  }
+  return result.rolls.map((v) => ({
+    faces,
+    value: faces === 10 ? v % 10 : v,
+    percentile: false,
+  }));
+}
+
 const s = (v: unknown) => (v == null ? "" : String(v));
 const n = (v: unknown) => {
   const p = typeof v === "string" ? parseInt(v, 10) : typeof v === "number" ? v : NaN;
@@ -130,6 +148,14 @@ export default function SheetClient({
     try {
       const result = rollDice(expr);
       setLog((prev) => [{ ...result, label, at: Date.now() }, ...prev].slice(0, 30));
+      // 3D dice animation — the physics is theatre, the roll above is the
+      // result; the overlay remaps the landed faces to these values.
+      const specs = specsForResult(result);
+      if (specs.length > 0) {
+        import("@/lib/dice3d")
+          .then((m) => m.animateRoll(specs))
+          .catch(() => {});
+      }
     } catch {
       // unparsable damage strings etc. — ignore
     }
@@ -537,6 +563,21 @@ export default function SheetClient({
           </Card>
         </TabsContent>
       </Tabs>
+
+      <div className="fixed top-1/2 right-1.5 z-40 hidden -translate-y-1/2 flex-col gap-1.5 lg:flex">
+        {[4, 6, 8, 10, 12, 20, 100].map((f) => (
+          <Button
+            key={f}
+            size="sm"
+            variant="outline"
+            className="h-9 w-11 bg-background px-0 text-xs"
+            onClick={() => roll(`d${f}`, `1d${f}`)}
+            aria-label={`Roll 1d${f}`}
+          >
+            d{f}
+          </Button>
+        ))}
+      </div>
 
       {log.length > 0 && (
         <button
