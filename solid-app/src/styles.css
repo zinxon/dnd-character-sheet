@@ -1,0 +1,464 @@
+/* Semantic tokens only. Light is the default; dark follows the system
+   or the theme toggle, which sets data-theme on the root element. */
+:root {
+  --bg: #f7f7f5;
+  --surface: #ffffff;
+  --surface-muted: #efefec;
+  --text: #1c1c1a;
+  --muted: #6d6d66;
+  --border: #dddcd4;
+  --accent: #b3382e;
+  --on-accent: #ffffff;
+  --focus: #2563eb;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #171716;
+    --surface: #212120;
+    --surface-muted: #2a2a29;
+    --text: #ececea;
+    --muted: #a3a39b;
+    --border: #3a3a37;
+    --accent: #e0685e;
+    --on-accent: #171716;
+    --focus: #7aa5ff;
+  }
+}
+
+:root[data-theme="light"] {
+  --bg: #f7f7f5;
+  --surface: #ffffff;
+  --surface-muted: #efefec;
+  --text: #1c1c1a;
+  --muted: #6d6d66;
+  --border: #dddcd4;
+  --accent: #b3382e;
+  --on-accent: #ffffff;
+  --focus: #2563eb;
+}
+
+:root[data-theme="dark"] {
+  --bg: #171716;
+  --surface: #212120;
+  --surface-muted: #2a2a29;
+  --text: #ececea;
+  --muted: #a3a39b;
+  --border: #3a3a37;
+  --accent: #e0685e;
+  --on-accent: #171716;
+  --focus: #7aa5ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 20px 16px 48px;
+}
+
+.topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 500;
+  margin: 0;
+}
+
+.subtitle {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 2px 0 0;
+}
+
+.zh {
+  color: var(--muted);
+  font-size: 0.82em;
+  margin-left: 6px;
+}
+
+.controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+/* Select (Vercel UI SDK parts, unstyled by default) */
+.select-label {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.select-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 220px;
+  justify-content: space-between;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: border-color 150ms ease;
+}
+
+.select-trigger:hover {
+  border-color: var(--muted);
+}
+
+.select-content {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.18);
+  padding: 4px;
+  min-width: 220px;
+  z-index: 20;
+}
+
+.select-item {
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.select-item[data-highlighted],
+.select-item:hover {
+  background: var(--surface-muted);
+}
+
+.theme-button {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: border-color 150ms ease;
+}
+
+.theme-button:hover {
+  border-color: var(--muted);
+}
+
+/* Tabs (Vercel UI SDK parts) */
+.tabs-list {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin: 16px 0 20px;
+  overflow-x: auto;
+}
+
+.tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 15px;
+  color: var(--muted);
+  white-space: nowrap;
+  transition: color 150ms ease, border-color 150ms ease;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tab[aria-selected="true"] {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+  font-weight: 500;
+}
+
+/* Layout */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+}
+
+@media (max-width: 720px) {
+  .grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 390px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .select-trigger {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .controls {
+    width: 100%;
+  }
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.panel h2 {
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0 0 10px;
+}
+
+.ability {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 6px;
+  text-align: center;
+}
+
+.ability .name {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.ability .mod {
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.ability .score {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 720px) {
+  .columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.row .bonus {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.prof-dot {
+  color: var(--accent);
+  font-size: 11px;
+  margin-right: 6px;
+}
+
+.combat {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .combat {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.combat .value {
+  font-size: 24px;
+  font-weight: 500;
+}
+
+.combat .label {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.hp-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.hp-controls button {
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.slot-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.slot-row:last-child {
+  border-bottom: none;
+}
+
+.slot-pips {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.slot-pip {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--muted);
+  background: var(--surface);
+  cursor: pointer;
+  padding: 0;
+  transition: background 150ms ease;
+}
+
+.slot-pip.used {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+table.attacks {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+table.attacks th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 4px 8px 4px 0;
+}
+
+table.attacks td {
+  padding: 6px 8px 6px 0;
+  border-top: 1px solid var(--border);
+}
+
+.spell-group {
+  margin-bottom: 16px;
+}
+
+.spell-group h3 {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted);
+  margin: 0 0 6px;
+}
+
+.spell {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.spell:last-child {
+  border-bottom: none;
+}
+
+.spell .prep {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.spell .source {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.text-block {
+  white-space: pre-wrap;
+  font-size: 14px;
+  margin: 0 0 12px;
+}
+
+.text-block:last-child {
+  margin-bottom: 0;
+}
+
+.footer-note {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 20px;
+}

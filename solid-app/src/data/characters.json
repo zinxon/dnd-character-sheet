@@ -1,0 +1,561 @@
+{
+ "characters": [
+  {
+   "id": "james",
+   "name": "James",
+   "classLevel": "Wizard (School of Evocation) 7",
+   "race": "Human",
+   "background": "Sage - Baldur’s Gate",
+   "alignment": "",
+   "scores": {
+    "str": 9,
+    "dex": 14,
+    "con": 15,
+    "int": 16,
+    "wis": 11,
+    "cha": 13
+   },
+   "saveProfs": [
+    "int",
+    "wis"
+   ],
+   "skillProfs": [
+    "arcana",
+    "history",
+    "insight",
+    "investigation"
+   ],
+   "skillExpertise": [],
+   "hpMax": 44,
+   "hpCur": 44,
+   "ac": 14,
+   "speed": 30,
+   "hitDice": "7d6",
+   "slots": [
+    {
+     "level": 1,
+     "total": 4,
+     "used": 0
+    },
+    {
+     "level": 2,
+     "total": 3,
+     "used": 1
+    },
+    {
+     "level": 3,
+     "total": 3,
+     "used": 3
+    },
+    {
+     "level": 4,
+     "total": 1,
+     "used": 1
+    }
+   ],
+   "spellcasting": [
+    {
+     "label": "Wizard",
+     "labelZh": "法師",
+     "ability": "Intelligence",
+     "abilityZh": "智力",
+     "dc": 14,
+     "attack": 6,
+     "note": "Spell attack +8 with Staff of Power attuned 持力量法杖時法術攻擊 +8"
+    }
+   ],
+   "spells": [
+    {
+     "name": "Fire Bolt",
+     "zh": "火焰箭",
+     "level": 0,
+     "prepared": false,
+     "source": "Wizard"
+    },
+    {
+     "name": "Mage Hand",
+     "zh": "法師之手",
+     "level": 0,
+     "prepared": false,
+     "source": "Wizard"
+    },
+    {
+     "name": "Light",
+     "zh": "光亮術",
+     "level": 0,
+     "prepared": false,
+     "source": "Wizard"
+    },
+    {
+     "name": "Create Bonfire",
+     "zh": "",
+     "level": 0,
+     "prepared": false,
+     "source": "Wizard"
+    },
+    {
+     "name": "Grease",
+     "zh": "油膩術",
+     "level": 1,
+     "prepared": true,
+     "source": "Wizard"
+    },
+    {
+     "name": "Thunderwave",
+     "zh": "雷鳴波",
+     "level": 1,
+     "prepared": true,
+     "source": "Wizard"
+    },
+    {
+     "name": "Sleep",
+     "zh": "睡眠術",
+     "level": 1,
+     "prepared": true,
+     "source": "Wizard"
+    },
+    {
+     "name": "Mage Armor",
+     "zh": "法師護甲",
+     "level": 1,
+     "prepared": true,
+     "source": "Wizard"
+    },
+    {
+     "name": "Charm Person",
+     "zh": "魅惑人類",
+     "level": 1,
+     "prepared": false,
+     "source": "Wizard"
+    },
+    {
+     "name": "Color Spray",
+     "zh": "七彩噴射",
+     "level": 1,
+     "prepared": false,
+     "source": "Wizard"
+    },
+    {
+     "name": "Alarm",
+     "zh": "警報術",
+     "level": 1,
+     "prepared": false,
+     "source": "Wizard"
+    },
+    {
+     "name": "Cure Wounds",
+     "zh": "治療傷勢",
+     "level": 1,
+     "prepared": false,
+     "source": "Wizard"
+    },
+    {
+     "name": "Magic Missile",
+     "zh": "魔法飛彈",
+     "level": 1,
+     "prepared": false,
+     "source": "Wizard"
+    },
+    {
+     "name": "Invisibility",
+     "zh": "隱形術",
+     "level": 2,
+     "prepared": true,
+     "source": "Wizard"
+    },
+    {
+     "name": "Scorching Ray",
+     "zh": "灼熱射線",
+     "level": 2,
+     "prepared": true,
+     "source": "Wizard"
+    },
+    {
+     "name": "Flaming Sphere",
+     "zh": "熾焰法球",
+     "level": 2,
+     "prepared": false,
+     "source": "Wizard"
+    },
+    {
+     "name": "Lesser Restoration",
+     "zh": "次級復原術",
+     "level": 2,
+     "prepared": false,
+     "source": "Wizard"
+    },
+    {
+     "name": "Levitate",
+     "zh": "漂浮術",
+     "level": 2,
+     "prepared": false,
+     "source": "Wizard"
+    },
+    {
+     "name": "Ray of Enfeeblement",
+     "zh": "衰弱射線",
+     "level": 2,
+     "prepared": false,
+     "source": "Wizard"
+    },
+    {
+     "name": "Lightning Bolt",
+     "zh": "閃電束",
+     "level": 3,
+     "prepared": true,
+     "source": "Wizard"
+    },
+    {
+     "name": "Fireball",
+     "zh": "火球術",
+     "level": 3,
+     "prepared": true,
+     "source": "Wizard"
+    },
+    {
+     "name": "Haste",
+     "zh": "加速術",
+     "level": 3,
+     "prepared": true,
+     "source": "Wizard"
+    },
+    {
+     "name": "Counterspell",
+     "zh": "法術反制",
+     "level": 3,
+     "prepared": true,
+     "source": "Wizard"
+    },
+    {
+     "name": "Sleet Storm",
+     "zh": "雨夾雪風暴",
+     "level": 3,
+     "prepared": false,
+     "source": "Wizard"
+    },
+    {
+     "name": "Mass Cure Wounds",
+     "zh": "集體治療傷勢",
+     "level": 5,
+     "prepared": false,
+     "source": "Wizard"
+    },
+    {
+     "name": "Cone of Cold",
+     "zh": "寒冰錐",
+     "level": 5,
+     "prepared": false,
+     "source": "Wizard"
+    },
+    {
+     "name": "Hold Monster",
+     "zh": "定身怪物",
+     "level": 5,
+     "prepared": false,
+     "source": "Wizard"
+    },
+    {
+     "name": "Wall of Force",
+     "zh": "力場牆",
+     "level": 5,
+     "prepared": false,
+     "source": "Wizard"
+    },
+    {
+     "name": "Globe of Invulnerability",
+     "zh": "防護法球",
+     "level": 6,
+     "prepared": false,
+     "source": "Wizard"
+    }
+   ],
+   "attacks": [
+    {
+     "name": "Quarterstaff",
+     "bonus": "",
+     "damage": ""
+    },
+    {
+     "name": "Staff of Power",
+     "bonus": "+4",
+     "damage": "1d6+1 bludgeoning (1d8+1 versatile)"
+    }
+   ],
+   "features": "Arcane Recovery. Once per day when you finish a short rest, you can choose expended spell slots to recover — up to a combined level of 4, and none of the slots can be 6th level or higher.\n\nEvocation Savant. The gold and time you must spend to copy an evocation spell into your spellbook is halved.\n\nSculpt Spells. When you cast an evocation spell that affects other creatures that you can see, you can choose a number of them equal to 1 + the spell’s level. The chosen creatures automatically succeed on their saving throws against the spell, and they take no damage if they would normally take half damage on a successful save.\n\nPotent Cantrip. When a creature succeeds on a saving throw against your cantrip, the creature takes half the cantrip’s damage (if any) but suffers no additional effect from the cantrip.\n\nCantrip Formulas. Whenever you finish a long rest and consult the arcane formulas in your spellbook, you can replace one wizard cantrip you know with another cantrip from the wizard spell list.\n\nElemental Adept (Fire). Spells you cast ignore resistance to fire damage. In addition, when you roll damage for a spell you cast that deals fire damage, you can treat any 1 on a damage die as a 2.\n\nHero’s Journey Boon. At your GM’s discretion you have been granted a Hero’s Journey Boon.\n\nDark Bargain. At your GM’s discretion, you have taken a Dark Bargain.",
+   "proficiencies": "Weapons: Daggers, darts, slings, quarterstaffs, light crossbows\nLanguages: Common, Draconic, Celestial, Giant",
+   "personality": "Gale uses his intelligence as a shield for navigating most areas of his life. Behind that wide vocabulary he hides a wounded heart, one more vulnerable than he cares to admit.",
+   "ideals": "Leaving behind the isolation of his ivory tower, Gale’s no longer hiding from the world but ready to embrace it. There’s nothing better for gaining knowledge than first-hand experience.",
+   "bonds": "Although Gale once counted Mystra as a lover, his folly in tampering with Netherese magic has left their relationship seemingly in ashes. In attempting to grow closer to the goddess, Gale only succeeded in pushing her away.",
+   "flaws": "Time has passed since Gale’s ambition drove him - he has been forced to learn humility. But when he next faces temptation, will he have the strength to resist?",
+   "allies": "Tara the tressym is far more than Gale’s pet; she has been his only advisor and friend since he was brought low by the orb. Tease him though she might, Tara will do everything she can to keep Gale safe. Just don't say she’s a cat.",
+   "backstory": "What’s a god to a world-class wizard? Gale was once a formidable archmage in Waterdeep, but pushed his relationship with the goddess Mystra too far. Not satisfied with being her lover, Gale tried to impress her further and meddled with powers beyond even his abilities, his attempt leaving him cursed with an orb of Netherese magic trapped inside his body. The cataclysmic power of the orb has turned Gale into a weapon capable of annihilating an entire city, should he fail to control himself.\n\nWracked with shame for his hubris, Gale retreated to his tower – first out of self-pity, and then out of necessity. His research led him to a means of keeping the orb's power contained, but only temporarily. Now, with the threat of ceremorphosis looming large can Gale see off both of the grim fates lurking within him, or is he doomed at every turn?",
+   "notes": "Personal possessions: Book of Lore  + Waaagh Magical Amulet",
+   "coins": {
+    "cp": "0",
+    "sp": "0",
+    "ep": "0",
+    "gp": "100",
+    "pp": "0"
+   }
+  },
+  {
+   "id": "tempest",
+   "name": "Tempest Lightning Mage (Lv 8 Build)",
+   "classLevel": "Cleric 3 (Tempest Domain), Wizard 5 (Order of Scribes)",
+   "race": "",
+   "background": "",
+   "alignment": "",
+   "scores": {
+    "str": 8,
+    "dex": 14,
+    "con": 14,
+    "int": 18,
+    "wis": 14,
+    "cha": 10
+   },
+   "saveProfs": [
+    "wis",
+    "cha"
+   ],
+   "skillProfs": [
+    "insight",
+    "religion"
+   ],
+   "skillExpertise": [],
+   "hpMax": 56,
+   "hpCur": 56,
+   "ac": 19,
+   "speed": 30,
+   "hitDice": "3d8 + 5d6",
+   "slots": [
+    {
+     "level": 1,
+     "total": 4,
+     "used": 0
+    },
+    {
+     "level": 2,
+     "total": 3,
+     "used": 0
+    },
+    {
+     "level": 3,
+     "total": 3,
+     "used": 0
+    },
+    {
+     "level": 4,
+     "total": 2,
+     "used": 0
+    }
+   ],
+   "spellcasting": [
+    {
+     "label": "Wizard",
+     "labelZh": "法師",
+     "ability": "Intelligence",
+     "abilityZh": "智力",
+     "dc": 15,
+     "attack": 7,
+     "note": ""
+    },
+    {
+     "label": "Cleric",
+     "labelZh": "牧師",
+     "ability": "Wisdom",
+     "abilityZh": "感知",
+     "dc": 13,
+     "attack": 5,
+     "note": ""
+    }
+   ],
+   "spells": [
+    {
+     "name": "Shocking Grasp",
+     "zh": "電爪",
+     "level": 0,
+     "prepared": false,
+     "source": "Wizard"
+    },
+    {
+     "name": "Fire Bolt",
+     "zh": "火焰箭",
+     "level": 0,
+     "prepared": false,
+     "source": "Wizard"
+    },
+    {
+     "name": "Mage Hand",
+     "zh": "法師之手",
+     "level": 0,
+     "prepared": false,
+     "source": "Wizard"
+    },
+    {
+     "name": "Minor Illusion",
+     "zh": "次級幻影",
+     "level": 0,
+     "prepared": false,
+     "source": "Wizard"
+    },
+    {
+     "name": "Shield",
+     "zh": "護盾術",
+     "level": 1,
+     "prepared": true,
+     "source": "Wizard"
+    },
+    {
+     "name": "Absorb Elements",
+     "zh": "吸收元素",
+     "level": 1,
+     "prepared": true,
+     "source": "Wizard"
+    },
+    {
+     "name": "Magic Missile",
+     "zh": "魔法飛彈",
+     "level": 1,
+     "prepared": false,
+     "source": "Wizard"
+    },
+    {
+     "name": "Mage Armor",
+     "zh": "法師護甲",
+     "level": 1,
+     "prepared": false,
+     "source": "Wizard"
+    },
+    {
+     "name": "Detect Magic",
+     "zh": "偵測魔法",
+     "level": 1,
+     "prepared": false,
+     "source": "Wizard"
+    },
+    {
+     "name": "Identify",
+     "zh": "鑑定術",
+     "level": 1,
+     "prepared": false,
+     "source": "Wizard"
+    },
+    {
+     "name": "Feather Fall",
+     "zh": "羽落術",
+     "level": 1,
+     "prepared": false,
+     "source": "Wizard"
+    },
+    {
+     "name": "Misty Step",
+     "zh": "迷蹤步",
+     "level": 2,
+     "prepared": true,
+     "source": "Wizard"
+    },
+    {
+     "name": "Web",
+     "zh": "蛛網術",
+     "level": 2,
+     "prepared": true,
+     "source": "Wizard"
+    },
+    {
+     "name": "Mirror Image",
+     "zh": "鏡影術",
+     "level": 2,
+     "prepared": true,
+     "source": "Wizard"
+    },
+    {
+     "name": "Lightning Bolt",
+     "zh": "閃電束",
+     "level": 3,
+     "prepared": true,
+     "source": "Wizard"
+    },
+    {
+     "name": "Fireball",
+     "zh": "火球術",
+     "level": 3,
+     "prepared": true,
+     "source": "Wizard"
+    },
+    {
+     "name": "Counterspell",
+     "zh": "法術反制",
+     "level": 3,
+     "prepared": true,
+     "source": "Wizard"
+    },
+    {
+     "name": "Fly",
+     "zh": "飛行術",
+     "level": 3,
+     "prepared": true,
+     "source": "Wizard"
+    },
+    {
+     "name": "Guidance",
+     "zh": "神導術",
+     "level": 0,
+     "prepared": false,
+     "source": "Cleric"
+    },
+    {
+     "name": "Sacred Flame",
+     "zh": "神聖火焰",
+     "level": 0,
+     "prepared": false,
+     "source": "Cleric"
+    },
+    {
+     "name": "Thaumaturgy",
+     "zh": "奇術",
+     "level": 0,
+     "prepared": false,
+     "source": "Cleric"
+    }
+   ],
+   "attacks": [
+    {
+     "name": "Shocking Grasp",
+     "bonus": "+7",
+     "damage": "2d8 lightning"
+    },
+    {
+     "name": "Quarterstaff",
+     "bonus": "+2",
+     "damage": "1d6-1 bludgeoning (1d8-1 versatile)"
+    },
+    {
+     "name": "Spiritual Weapon",
+     "bonus": "+5",
+     "damage": "1d8+2 force"
+    },
+    {
+     "name": "Guiding Bolt",
+     "bonus": "+5",
+     "damage": "4d6 radiant"
+    }
+   ],
+   "features": "Arcane Recovery. Once per day when you finish a short rest, you can choose expended spell slots to recover — up to a combined level of 3, and none of the slots can be 6th level or higher.\n\nAwakened Spellbook. When you cast a wizard spell with a spell slot, you can temporarily replace its damage type with a damage type that appears in another spell in your spellbook of the same level — for example, cast fireball as lightning damage, ready to be maximized with Destructive Wrath. When you cast a wizard spell as a ritual, you can use its normal casting time instead of adding 10 minutes, once per long rest. Whenever you finish a long rest and consult your spellbook, you can replace one wizard cantrip you know with another cantrip from the wizard spell list.\n\nWizardly Quill. The magical quill you summon never needs ink, and it lets you copy a spell into your spellbook in just 2 minutes per level of the spell.\n\nTempest Domain Spells. You always have fog cloud and thunderwave prepared (from 1st level), and gust of wind and shatter (from 3rd level). These spells don't count against the number of cleric spells you can prepare, and they count as cleric spells for you.\n\nBonus Proficiencies (Tempest Domain). You gain proficiency with martial weapons and heavy armor. This build fights in half plate armor and a shield instead (AC 19), keeping a component pouch as its focus.\n\nWrath of the Storm. When a creature within 5 feet of you that you can see hits you with an attack, you can use your reaction to cause the creature to make a Dexterity saving throw (DC 13). The creature takes 2d8 lightning or thunder damage (your choice) on a failed save, or half as much damage on a successful one. You can use this feature a number of times equal to your Wisdom modifier (2), and you regain all expended uses when you finish a long rest.\n\nChannel Divinity: Destructive Wrath. When you roll lightning or thunder damage, you can use your Channel Divinity to deal maximum damage instead of rolling. You have one use of Channel Divinity, which you regain when you finish a short or long rest; it also fuels Turn Undead.\n\nChannel Divinity: Turn Undead. As an action, you present your holy symbol and speak a prayer censuring the undead. Each undead within 30 feet of you that can see or hear you must make a Wisdom saving throw (DC 13). If it fails, it is turned for 1 minute or until it takes any damage.\n\nRitual Casting. You can cast any wizard spell in your spellbook as a ritual if it has the ritual tag, and any cleric spell you have prepared as a ritual if it has the ritual tag.",
+   "proficiencies": "Weapons: Simple weapons, martial weapons, daggers, darts, slings, quarterstaffs, light crossbows\nArmor: Light armor, medium armor, heavy armor, shields\nLanguages: Common",
+   "personality": "",
+   "ideals": "",
+   "bonds": "",
+   "flaws": "",
+   "allies": "",
+   "backstory": "",
+   "notes": "Build notes: Wizard 5 (Order of Scribes) / Cleric 3 (Tempest Domain), built Cleric 1 -> Wizard 5 -> Cleric 2 -> Cleric 3. Multiclass caster level 8: spell slots 4/3/3/2 are ONE shared pool - track them on the Wizard sheet. Signature combo: cast Fireball as lightning via Awakened Spellbook, then maximize it with Channel Divinity: Destructive Wrath (48 damage). Wizard DC 15 / attack +7; Cleric DC 13 / attack +5. Saves: Wisdom + Charisma (Cleric starting class). Race and background are not chosen yet - pick them and add the background's two skill proficiencies.\n中文：法師 5（抄寫員學派）／牧師 3（暴風領域），升級路線：牧師 1 → 法師 5 → 牧師 2 → 牧師 3。兼職施法者等級 8：法術位 4/3/3/2 是同一個共享池——請在法師法術表上記錄。招牌連招：用覺醒法術書將火球術改為閃電屬性，再用引導神力：毀滅之怒取最大值（48 點）。法師 DC 15／攻擊 +7；牧師 DC 13／攻擊 +5。豁免熟練：感知＋魅力（牧師為起始職業）。種族與背景尚未選擇——選好後記得加上背景的兩項技能熟練。",
+   "coins": {
+    "cp": "0",
+    "sp": "0",
+    "ep": "0",
+    "gp": "0",
+    "pp": "0"
+   }
+  }
+ ]
+}

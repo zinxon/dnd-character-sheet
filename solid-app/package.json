@@ -1,0 +1,22 @@
+{
+  "name": "dnd-character-sheet-solid",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@solidjs/web": "^2.0.3",
+    "@ui-sdk/core": "^0.1.0-beta.16",
+    "@ui-sdk/solid": "^0.1.0-beta.16",
+    "solid-js": "^2.0.3"
+  },
+  "devDependencies": {
+    "@solidjs/vite-plugin": "^3.0.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8"
+  }
+}
