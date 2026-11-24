@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Zh, zhOf } from "@/components/Zh";
+import { playSpellSound } from "@/lib/spellSound";
 import {
   ABILITIES,
   ABILITY_NAMES,
@@ -74,6 +75,7 @@ type SpellDetail = {
   conc?: boolean;
   zhName: string | null;
   zhText: string | null;
+  zhHigher: string | null;
 };
 
 type LogEntry = RollResult & { label: string; at: number };
@@ -903,8 +905,9 @@ function SpellsTab({
     setEntries({ ...entries, [String(lvl)]: list });
   };
 
-  const cast = (lvl: number) => {
+  const cast = (lvl: number, spellName: string) => {
     if (lvl === 0) return;
+    playSpellSound(spellName);
     const used = slotUsed(data, lvl);
     if (used < (slots[lvl - 1] ?? 0)) set({ [`slot${lvl}u`]: String(used + 1) });
   };
@@ -965,7 +968,7 @@ function SpellsTab({
                     )}
                     <span className="ml-auto flex gap-1.5">
                       {lvl > 0 && (
-                        <Button size="sm" variant="outline" onClick={() => cast(lvl)}>
+                        <Button size="sm" variant="outline" onClick={() => cast(lvl, entry.name)}>
                           Cast
                           <Zh text="Cast" />
                         </Button>
@@ -984,6 +987,7 @@ function SpellsTab({
                       <p>{d.text}</p>
                       {d.higher && <p>At higher levels: {d.higher}</p>}
                       {d.zhText && <p className="text-muted-foreground">{d.zhText}</p>}
+                      {d.zhHigher && <p className="text-muted-foreground">{d.zhHigher}</p>}
                     </div>
                   )}
                 </div>

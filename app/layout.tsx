@@ -15,9 +15,9 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={cn("font-sans", geist.variable)}>
-      {/* Browser extensions (e.g. Grammarly) inject attributes on <body>
-          before hydration; ignore those attribute mismatches only. */}
+    // Browser extensions (Grammarly, Immersive Translate, …) inject attributes
+    // on <html>/<body> before hydration; ignore those attribute mismatches only.
+    <html lang="en" className={cn("font-sans", geist.variable)} suppressHydrationWarning>
       <body suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>
