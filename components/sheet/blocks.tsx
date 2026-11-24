@@ -22,7 +22,7 @@ export function Panel({
 }) {
   const zh = zhOf(title);
   return (
-    <section className={cn("flex flex-col rounded-xl border-2 bg-card p-3 shadow-xs", className)}>
+    <section className={cn("plate flex flex-col rounded-xl border bg-card p-3", className)}>
       <div className="flex-1">{children}</div>
       <h2 className="mt-3 text-center text-xs font-semibold tracking-wider uppercase">
         {title}
@@ -47,7 +47,7 @@ export function StatBox({
   return (
     <div
       className={cn(
-        "flex min-w-0 flex-col items-center justify-center rounded-xl border-2 bg-card px-2 py-1.5 text-center shadow-xs",
+        "plate flex min-w-0 flex-col items-center justify-center rounded-xl border bg-card px-2 py-1.5 text-center",
         className,
       )}
     >
@@ -82,7 +82,7 @@ export function AbilityBox({
 }) {
   const mod = Math.floor((score - 10) / 2);
   return (
-    <div className="flex min-w-0 flex-col items-center rounded-xl border-2 bg-card px-1.5 pt-1.5 shadow-xs">
+    <div className="plate flex min-w-0 flex-col items-center rounded-xl border bg-card px-1.5 pt-1.5">
       <Label text={name} />
       <button
         type="button"
@@ -147,9 +147,9 @@ export function ProfDot({
       aria-label={label}
       title={expert ? "Expertise" : prof ? "Proficient" : "Not proficient"}
       className={cn(
-        "size-3 shrink-0 rounded-full border-2 border-foreground/60",
-        prof && "bg-foreground/80",
-        expert && "ring-2 ring-foreground/40 ring-offset-1 ring-offset-card",
+        "size-3 shrink-0 rounded-full border-2 border-primary/70",
+        prof && "bg-primary",
+        expert && "ring-2 ring-primary/50 ring-offset-1 ring-offset-card",
       )}
     />
   );

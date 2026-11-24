@@ -33,6 +33,8 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Zh, zhOf } from "@/components/Zh";
 import { playSpellSound } from "@/lib/spellSound";
+import { playSpellFx } from "@/lib/spellFx";
+import { SpellFxLayer } from "@/components/sheet/SpellFxLayer";
 import { Portrait } from "@/components/sheet/Portrait";
 import { DiceTray } from "@/components/sheet/DiceTray";
 import { AbilityBox, BonusButton, Panel, ProfDot, StatBox } from "@/components/sheet/blocks";
@@ -301,8 +303,6 @@ export default function SheetClient({
   const acComputed = 10 + mod(scores.dex) + n(data.armormod);
   const acShown = data.acManual ? n(data.acManual) : acComputed;
 
-  const darkBtn =
-    "border-white/20 bg-white/5 text-zinc-50 hover:bg-white/15 hover:text-white [&_span]:text-zinc-400";
   const passive = (key: string) => 10 + skillBonus(data, key);
   const numInput =
     "bg-transparent [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none";
@@ -351,7 +351,7 @@ export default function SheetClient({
       onClick={() => set({ inspiration: !data.inspiration })}
       aria-pressed={Boolean(data.inspiration)}
       className={cn(
-        "flex flex-col items-center justify-center rounded-xl border-2 px-2 py-1.5 text-center shadow-xs",
+        "plate flex flex-col items-center justify-center rounded-xl border bg-card px-2 py-1.5 text-center",
         data.inspiration
           ? "border-amber-500 bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200"
           : "bg-card",
@@ -367,7 +367,7 @@ export default function SheetClient({
   );
 
   const hpBox = (className?: string) => (
-    <div className={cn("flex min-w-0 gap-3 rounded-xl border-2 bg-card p-2 shadow-xs", className)}>
+    <div className={cn("flex min-w-0 gap-3 plate rounded-xl border bg-card p-2", className)}>
       <div className="grid w-20 shrink-0 grid-cols-1 content-center gap-1">
         <Button
           size="sm"
@@ -642,6 +642,7 @@ export default function SheetClient({
   const overlays = (
     <>
       {/* The 3D dice overlay is created by lib/diceBox on <body>, outside React. */}
+      <SpellFxLayer />
       <DiceTray
         custom={(data.customDice as string[] | undefined) ?? []}
         onCustomChange={(customDice) => set({ customDice })}
@@ -654,7 +655,7 @@ export default function SheetClient({
           type="button"
           onClick={() => setDiceOpen(true)}
           // Top-right on every screen size, like a notification.
-          className="fixed top-3 right-3 z-50 flex max-w-[calc(100vw-1.5rem)] items-center gap-3 rounded-full border bg-background px-4 py-2 shadow-lg"
+          className="print:hidden fixed top-3 right-3 z-50 flex max-w-[calc(100vw-1.5rem)] items-center gap-3 rounded-full border bg-background px-4 py-2 shadow-lg"
           aria-label="Latest roll — open dice roller"
         >
           {pending ? (
@@ -666,7 +667,7 @@ export default function SheetClient({
             </>
           ) : (
             <>
-              <span key={log[0].at} className="text-xl font-medium [animation:rollpop_.2s_ease-out]">
+              <span key={log[0].at} className="rollpop text-xl font-medium">
                 {log[0].total}
               </span>
               <span className="max-w-56 truncate text-sm text-muted-foreground">
@@ -677,8 +678,6 @@ export default function SheetClient({
           )}
         </button>
       )}
-      <style>{`@keyframes rollpop { from { transform: scale(1.35); } to { transform: scale(1); } }`}</style>
-
       <DiceDialog open={diceOpen} onOpenChange={setDiceOpen} roll={roll} log={log} pending={pending} />
       <LevelUpDialog
         open={levelUpOpen}
@@ -719,7 +718,7 @@ export default function SheetClient({
 
     return (
       <main className="min-h-svh bg-muted/50 pb-24">
-        <header className="sticky top-0 z-40 bg-zinc-900 text-zinc-50 shadow-md">
+        <header className="sticky top-0 z-40 bg-sidebar text-sidebar-foreground border-b border-border shadow-md">
           <div className="flex items-center gap-3 px-3 py-2">
             <Portrait
               src={s(data.portrait)}
@@ -729,20 +728,20 @@ export default function SheetClient({
             />
             <div className="min-w-0 flex-1">
               <p className="truncate text-lg leading-tight font-medium">{s(data.charname) || "Unnamed"}</p>
-              <p className="truncate text-xs text-zinc-400">
+              <p className="truncate text-xs text-muted-foreground">
                 {[s(data.race), s(data.classlevel)].filter(Boolean).join(" · ")}
               </p>
-              <p className="text-xs text-zinc-400">Level {level}</p>
+              <p className="text-xs text-muted-foreground">Level {level}</p>
             </div>
             <Popover>
-              <PopoverTrigger className="rounded-lg border border-white/20 bg-white/5 px-3 py-1 text-center">
+              <PopoverTrigger className="rounded-lg border border-border bg-sidebar-accent px-3 py-1 text-center">
                 <span className="block text-[0.6rem] font-semibold tracking-wider uppercase">
-                  Hit points <span className="font-normal text-zinc-400">{zhOf("Hit Points")}</span>
+                  Hit points <span className="font-normal text-muted-foreground">{zhOf("Hit Points")}</span>
                 </span>
                 <span className="text-xl font-medium">
                   {s(data.hpcur) || "—"} / {s(data.hpmax) || "—"}
                 </span>
-                {hptmp ? <span className="ml-1 text-xs text-zinc-400">+{hptmp}</span> : null}
+                {hptmp ? <span className="ml-1 text-xs text-muted-foreground">+{hptmp}</span> : null}
               </PopoverTrigger>
               <PopoverContent align="end" className="w-80 p-2">
                 {hpBox("border-none p-0 shadow-none")}
@@ -751,31 +750,31 @@ export default function SheetClient({
           </div>
 
           {/* Quick stats */}
-          <div className="grid grid-cols-[repeat(4,minmax(0,1fr))_auto] items-center gap-1 border-t border-white/10 px-2 py-1.5 text-center">
+          <div className="grid grid-cols-[repeat(4,minmax(0,1fr))_auto] items-center gap-1 border-t border-border px-2 py-1.5 text-center">
             <div>
-              <span className="block text-[0.6rem] font-semibold uppercase text-zinc-400">Prof</span>
+              <span className="block text-[0.6rem] font-semibold uppercase text-muted-foreground">Prof</span>
               <span className="text-xl font-medium">{fmt(pb)}</span>
             </div>
             <div>
-              <span className="block text-[0.6rem] font-semibold uppercase text-zinc-400">Speed</span>
+              <span className="block text-[0.6rem] font-semibold uppercase text-muted-foreground">Speed</span>
               <span className="text-xl font-medium">{n(data.speedBase) || 30}</span>
-              <span className="text-xs text-zinc-400"> ft.</span>
+              <span className="text-xs text-muted-foreground"> ft.</span>
             </div>
             <button
               type="button"
               onClick={() => roll("Initiative", String(mod(scores.dex)))}
               aria-label="Roll initiative"
             >
-              <span className="block text-[0.6rem] font-semibold uppercase text-zinc-400">Initiative</span>
-              <span className="rounded border border-white/25 px-1.5 text-xl font-medium">{fmt(mod(scores.dex))}</span>
+              <span className="block text-[0.6rem] font-semibold uppercase text-muted-foreground">Initiative</span>
+              <span className="rounded border border-border px-1.5 text-xl font-medium">{fmt(mod(scores.dex))}</span>
             </button>
             <div>
-              <span className="block text-[0.6rem] font-semibold uppercase text-zinc-400">Armor</span>
+              <span className="block text-[0.6rem] font-semibold uppercase text-muted-foreground">Armor</span>
               <span className="text-xl font-medium">{acShown}</span>
             </div>
             <div className="grid gap-1">
               <Popover>
-                <PopoverTrigger className="rounded border border-white/20 px-2 py-0.5 text-[0.6rem] font-semibold uppercase">
+                <PopoverTrigger className="rounded border border-border px-2 py-0.5 text-[0.6rem] font-semibold uppercase">
                   Defenses
                 </PopoverTrigger>
                 <PopoverContent align="end" className="w-72">
@@ -789,7 +788,7 @@ export default function SheetClient({
                 <PopoverTrigger
                   className={cn(
                     "rounded border px-2 py-0.5 text-[0.6rem] font-semibold uppercase",
-                    conditions.length ? "border-amber-400 text-amber-300" : "border-white/20",
+                    conditions.length ? "border-amber-400 text-amber-300" : "border-border",
                   )}
                 >
                   Conditions{conditions.length ? ` (${conditions.length})` : ""}
@@ -844,7 +843,7 @@ export default function SheetClient({
           whileHover={{ scale: 1.06 }}
           whileTap={{ scale: 0.86 }}
           transition={{ type: "spring", stiffness: 500, damping: 22 }}
-          className="fixed right-4 bottom-4 z-50 flex size-14 items-center justify-center rounded-full bg-zinc-900 text-white shadow-lg ring-2 ring-white/20"
+          className="fixed right-4 bottom-4 z-50 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg ring-2 ring-primary/40 print:hidden"
         >
           {/* Grid icon rotates into a close icon. */}
           <AnimatePresence mode="popLayout" initial={false}>
@@ -887,28 +886,28 @@ export default function SheetClient({
                   type="button"
                   onClick={() => go(key)}
                   className={cn(
-                    "flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-zinc-900 px-2 py-3 text-xs font-semibold tracking-wide text-white uppercase shadow-lg",
+                    "flex items-center justify-center gap-2 rounded-lg border border-border bg-card px-2 py-3 text-xs font-semibold tracking-wide text-card-foreground uppercase shadow-lg",
                     wide && "col-span-2",
-                    key === mobileSection && "ring-2 ring-white/70",
+                    key === mobileSection && "ring-2 ring-primary",
                   )}
                 >
                   <Icon className="size-4 shrink-0" />
                   <span className="text-left">
                     {label}
-                    {zhOf(label) && <span className="block font-normal tracking-normal text-zinc-400 normal-case">{zhOf(label)}</span>}
+                    {zhOf(label) && <span className="block font-normal tracking-normal text-muted-foreground normal-case">{zhOf(label)}</span>}
                   </span>
                 </motion.button>
               ))}
               <motion.div variants={menuItemMotion} className="col-span-2 mt-1 grid grid-cols-3 gap-2">
                 {(
                   [
-                    ["Short Rest", () => setShortRestOpen(true)],
-                    ["Long Rest", longRest],
-                    ["Dice", () => setDiceOpen(true)],
-                    ["Level Up", () => setLevelUpOpen(true)],
-                    ["Print", () => window.print()],
+                    ["Short Rest", () => setShortRestOpen(true), false],
+                    ["Long Rest", longRest, false],
+                    ["Dice", () => setDiceOpen(true), false],
+                    ["Level Up", () => setLevelUpOpen(true), true],
+                    ["Print", () => window.print(), false],
                   ] as const
-                ).map(([label, action]) => (
+                ).map(([label, action, primary]) => (
                   <button
                     key={label}
                     type="button"
@@ -916,12 +915,17 @@ export default function SheetClient({
                       setMenuOpen(false);
                       action();
                     }}
-                    className="rounded-lg bg-white px-2 py-2 text-xs font-medium text-zinc-900 shadow-lg"
+                    className={cn(
+                      "rounded-lg px-2 py-2 text-xs font-medium",
+                      primary
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary text-secondary-foreground",
+                    )}
                   >
-                    {label} <span className="text-zinc-500">{zhOf(label)}</span>
+                    {label} <span className="opacity-80">{zhOf(label)}</span>
                   </button>
                 ))}
-                <Link href="/" className="rounded-lg bg-white px-2 py-2 text-center text-xs font-medium text-zinc-900 shadow-lg">
+                <Link href="/" className="rounded-lg bg-secondary px-2 py-2 text-center text-xs font-medium text-secondary-foreground">
                   Library
                 </Link>
               </motion.div>
@@ -938,7 +942,7 @@ export default function SheetClient({
   // ── Tablet / desktop: dashboard ─────────────────────────────────────
   return (
     <main className="min-h-svh bg-muted/50 pb-12">
-      <header className="bg-zinc-900 text-zinc-50">
+      <header className="bg-sidebar text-sidebar-foreground border-b border-border">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-3">
           <Portrait
             src={s(data.portrait)}
@@ -949,13 +953,13 @@ export default function SheetClient({
             <Input
               value={s(data.charname)}
               onChange={(e) => set({ charname: e.target.value })}
-              className="h-auto border-none bg-transparent px-0 text-2xl font-medium text-white shadow-none focus-visible:ring-0 dark:bg-transparent"
+              className="h-auto border-none bg-transparent px-0 text-2xl font-semibold text-sidebar-foreground shadow-none focus-visible:ring-0 dark:bg-transparent"
               aria-label="Character name"
             />
-            <p className="text-sm text-zinc-300">
+            <p className="text-sm text-sidebar-foreground/80">
               {[s(data.race), s(data.classlevel)].filter(Boolean).join(" · ")}
             </p>
-            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400">
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
               <span>Level {level}</span>
               <span className="flex items-center gap-1.5">
                 XP
@@ -964,7 +968,7 @@ export default function SheetClient({
                   value={s(data.xp)}
                   onChange={(e) => set({ xp: e.target.value })}
                   aria-label="Experience points"
-                  className="w-20 rounded border border-white/20 bg-white/5 px-1.5 py-0.5 text-zinc-100"
+                  className="w-20 rounded border border-border bg-sidebar-accent px-1.5 py-0.5 text-sidebar-foreground"
                 />
                 {nextThreshold != null && (
                   <span>
@@ -979,25 +983,25 @@ export default function SheetClient({
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link href="/" className={cn(buttonVariants({ variant: "outline" }), darkBtn)}>
+            <Link href="/" className={buttonVariants({ variant: "outline" })}>
               Library
             </Link>
-            <Button variant="outline" className={darkBtn} onClick={() => setShortRestOpen(true)}>
+            <Button variant="outline" onClick={() => setShortRestOpen(true)}>
               Short rest
               <Zh text="Short Rest" />
             </Button>
-            <Button variant="outline" className={darkBtn} onClick={longRest}>
+            <Button variant="outline" onClick={longRest}>
               Long rest
               <Zh text="Long Rest" />
             </Button>
-            <Button variant="outline" className={darkBtn} onClick={() => setDiceOpen(true)}>
+            <Button variant="outline" onClick={() => setDiceOpen(true)}>
               Dice
               <Zh text="Dice" />
             </Button>
-            <Button variant="outline" className={darkBtn} onClick={() => window.print()}>
+            <Button variant="outline" onClick={() => window.print()}>
               Print
             </Button>
-            <Button className="bg-white text-zinc-900 hover:bg-zinc-200" onClick={() => setLevelUpOpen(true)}>
+            <Button onClick={() => setLevelUpOpen(true)}>
               Level up
               <Zh text="Level Up" />
             </Button>
@@ -1044,13 +1048,13 @@ export default function SheetClient({
               <StatBox top="Armor" bottom="Class" className="rounded-b-[2rem] px-4">
                 {acInput}
               </StatBox>
-              <div className="grid gap-1 rounded-xl border-2 bg-card p-2 shadow-xs">
+              <div className="grid gap-1 plate rounded-xl border bg-card p-2">
                 <span className="text-xs font-semibold uppercase">
                   Defenses <span className="font-normal normal-case text-muted-foreground">{zhOf("Defenses")}</span>
                 </span>
                 {defensesField}
               </div>
-              <div className="grid content-start gap-1 rounded-xl border-2 bg-card p-2 shadow-xs">
+              <div className="grid content-start gap-1 plate rounded-xl border bg-card p-2">
                 <span className="flex items-center justify-between text-xs font-semibold uppercase">
                   <span>
                     Conditions <span className="font-normal normal-case text-muted-foreground">{zhOf("Conditions")}</span>
@@ -1068,7 +1072,7 @@ export default function SheetClient({
               </div>
             </div>
 
-            <section className="min-w-0 rounded-xl border-2 bg-card p-3 shadow-xs">
+            <section className="min-w-0 plate rounded-xl border bg-card p-3">
               <Tabs defaultValue="actions">
                 <TabsList className="flex h-auto w-full flex-wrap justify-start [&>*]:flex-none">
                   <TabsTrigger value="actions">Actions<Zh text="Actions" /></TabsTrigger>
@@ -1346,6 +1350,7 @@ function SpellsTab({
   const cast = (lvl: number, spellName: string) => {
     if (lvl === 0) return;
     playSpellSound(spellName);
+    playSpellFx(spellName);
     const used = slotUsed(data, lvl);
     if (used < (slots[lvl - 1] ?? 0)) set({ [`slot${lvl}u`]: String(used + 1) });
   };

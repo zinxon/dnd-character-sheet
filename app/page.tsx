@@ -144,13 +144,14 @@ export default function LibraryPage() {
   };
 
   return (
-    <main className="mx-auto max-w-5xl p-4 sm:p-6">
-      <header className="mb-6 flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-medium">
-          Character library
-          <Zh text="Characters" />
-        </h1>
-        <div className="ml-auto flex gap-2">
+    <main className="min-h-svh">
+      <header className="border-b border-border bg-sidebar text-sidebar-foreground">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-3 px-4 py-4 sm:px-6">
+          <h1 className="text-2xl font-semibold">
+            Character library
+            <Zh text="Characters" />
+          </h1>
+          <div className="ml-auto flex gap-2">
           <Button onClick={() => setCreateOpen(true)}>New character</Button>
           <Button variant="outline" onClick={() => fileRef.current?.click()}>
             Import
@@ -170,8 +171,10 @@ export default function LibraryPage() {
             }}
           />
         </div>
+        </div>
       </header>
 
+      <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
       {loading ? (
         <p className="text-muted-foreground">Loading…</p>
       ) : characters.length === 0 ? (
@@ -254,7 +257,8 @@ export default function LibraryPage() {
             <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </AlertDialog>
+        </AlertDialog>
+      </div>
     </main>
   );
 }

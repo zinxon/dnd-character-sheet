@@ -137,7 +137,7 @@ export function DiceTray({
   };
 
   return (
-    <div ref={panel} className="fixed bottom-4 left-4 z-40">
+    <div ref={panel} className="print:hidden fixed bottom-4 left-4 z-40">
       <AnimatePresence>
       {open && (
         <motion.div
@@ -149,13 +149,13 @@ export function DiceTray({
           animate="open"
           exit="closed"
           style={{ transformOrigin: "bottom left" }}
-          className="absolute bottom-16 left-0 w-[min(20rem,calc(100vw-2rem))] rounded-xl border border-white/10 bg-zinc-900 p-4 text-zinc-50 shadow-2xl"
+          className="plate absolute bottom-16 left-0 w-[min(20rem,calc(100vw-2rem))] rounded-xl border border-border bg-card p-4 text-card-foreground shadow-2xl"
         >
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold">
-              Roll dice <span className="font-normal text-zinc-400">擲骰</span>
+              Roll dice <span className="font-normal text-muted-foreground">擲骰</span>
             </h2>
-            <button type="button" onClick={() => setOpen(false)} aria-label="Close dice tray" className="text-zinc-400 hover:text-white">
+            <button type="button" onClick={() => setOpen(false)} aria-label="Close dice tray" className="text-muted-foreground hover:text-foreground">
               <XIcon className="size-5" />
             </button>
           </div>
@@ -174,8 +174,8 @@ export function DiceTray({
                 }}
                 aria-label={`Add a d${f}${pool[f] ? ` (${pool[f]} in pool)` : ""}`}
                 className={cn(
-                  "relative flex flex-col items-center gap-0.5 rounded-lg py-2 hover:bg-white/10",
-                  pool[f] && "bg-white/10",
+                  "relative flex flex-col items-center gap-0.5 rounded-lg py-2 hover:bg-muted",
+                  pool[f] && "bg-muted",
                 )}
               >
                 <DieIcon faces={f} className="size-9" />
@@ -188,7 +188,7 @@ export function DiceTray({
                       animate={{ scale: 1, opacity: 1 }}
                       exit={{ scale: 0, opacity: 0 }}
                       transition={{ type: "spring", stiffness: 600, damping: 20 }}
-                      className="absolute top-1 right-2 flex size-5 items-center justify-center rounded-full bg-red-600 text-[0.7rem] font-bold"
+                      className="absolute top-1 right-2 flex size-5 items-center justify-center rounded-full bg-primary text-[0.7rem] font-bold text-primary-foreground"
                     >
                       {pool[f]}
                     </motion.span>
@@ -197,20 +197,20 @@ export function DiceTray({
               </motion.button>
             ))}
             <motion.div variants={itemMotion} className="flex flex-col items-center justify-center gap-1 rounded-lg py-2">
-              <span className="text-[0.65rem] font-semibold tracking-wider text-zinc-400 uppercase">Mod</span>
+              <span className="text-[0.65rem] font-semibold tracking-wider text-muted-foreground uppercase">Mod</span>
               <div className="flex items-center gap-1">
-                <button type="button" onClick={() => setBonus((b) => b - 1)} aria-label="Decrease modifier" className="rounded p-0.5 hover:bg-white/10">
+                <button type="button" onClick={() => setBonus((b) => b - 1)} aria-label="Decrease modifier" className="rounded p-0.5 hover:bg-muted">
                   <MinusIcon className="size-3.5" />
                 </button>
                 <span className="w-7 text-center text-sm font-semibold">{bonus >= 0 ? `+${bonus}` : bonus}</span>
-                <button type="button" onClick={() => setBonus((b) => b + 1)} aria-label="Increase modifier" className="rounded p-0.5 hover:bg-white/10">
+                <button type="button" onClick={() => setBonus((b) => b + 1)} aria-label="Increase modifier" className="rounded p-0.5 hover:bg-muted">
                   <PlusIcon className="size-3.5" />
                 </button>
               </div>
             </motion.div>
           </div>
 
-          <p className="mt-2 min-h-5 text-center text-sm text-zinc-300">
+          <p className="mt-2 min-h-5 text-center text-sm text-muted-foreground">
             {empty
               ? "Tap dice to add them"
               : groups.map((g) => `${g.count}d${g.faces}`).join(" + ") + (bonus ? ` ${bonus > 0 ? "+" : "−"} ${Math.abs(bonus)}` : "")}
@@ -221,7 +221,7 @@ export function DiceTray({
               type="button"
               onClick={reset}
               disabled={empty && !bonus}
-              className="rounded-md bg-zinc-700 py-2 text-sm font-semibold tracking-wide uppercase disabled:opacity-40"
+              className="rounded-md bg-secondary py-2 text-sm font-semibold tracking-wide text-secondary-foreground uppercase disabled:opacity-40"
             >
               Reset
             </button>
@@ -229,25 +229,25 @@ export function DiceTray({
               type="button"
               onClick={rollNow}
               disabled={empty}
-              className="rounded-md bg-red-700 py-2 text-sm font-semibold tracking-wide uppercase hover:bg-red-600 disabled:opacity-40"
+              className="rounded-md bg-primary py-2 text-sm font-semibold tracking-wide text-primary-foreground uppercase hover:bg-primary/80 disabled:opacity-40"
             >
               Roll
             </button>
           </div>
 
-          <div className="mt-4 border-t border-white/10 pt-3">
-            <p className="mb-2 text-xs font-semibold tracking-wider text-zinc-400 uppercase">Saved rolls</p>
+          <div className="mt-4 border-t border-border pt-3">
+            <p className="mb-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase">Saved rolls</p>
             {custom.length > 0 && (
               <div className="mb-2 flex flex-wrap gap-1.5">
                 {custom.map((expr) => (
-                  <span key={expr} className="flex items-center rounded-full bg-white/10 text-sm">
-                    <button type="button" onClick={() => rollCustom(expr)} className="py-1 pr-1 pl-3 hover:text-white" aria-label={`Roll ${expr}`}>
+                  <span key={expr} className="flex items-center rounded-full bg-muted text-sm">
+                    <button type="button" onClick={() => rollCustom(expr)} className="py-1 pr-1 pl-3 hover:text-foreground" aria-label={`Roll ${expr}`}>
                       {expr}
                     </button>
                     <button
                       type="button"
                       onClick={() => onCustomChange(custom.filter((c) => c !== expr))}
-                      className="rounded-full p-1 text-zinc-400 hover:text-white"
+                      className="rounded-full p-1 text-muted-foreground hover:text-foreground"
                       aria-label={`Remove ${expr}`}
                     >
                       <XIcon className="size-3" />
@@ -272,9 +272,9 @@ export function DiceTray({
                 placeholder="4d8+2"
                 aria-label="New saved roll"
                 aria-invalid={Boolean(error)}
-                className="min-w-0 flex-1 rounded-md border border-white/15 bg-white/5 px-2 py-1 text-sm placeholder:text-zinc-500"
+                className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1 text-sm placeholder:text-muted-foreground"
               />
-              <button type="submit" className="rounded-md bg-white/15 px-3 text-sm font-medium hover:bg-white/25">
+              <button type="submit" className="rounded-md bg-secondary px-3 text-sm font-medium text-secondary-foreground hover:bg-secondary/80">
                 Save
               </button>
             </form>
@@ -292,7 +292,7 @@ export function DiceTray({
         whileHover={{ scale: 1.06 }}
         whileTap={{ scale: 0.86 }}
         transition={{ type: "spring", stiffness: 500, damping: 22 }}
-        className="flex size-14 items-center justify-center rounded-full bg-zinc-900 text-white shadow-lg ring-2 ring-white/20 hover:bg-zinc-800"
+        className="flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg ring-2 ring-primary/40 hover:bg-primary/80"
       >
         {/* The d20 spins a third of a turn as the tray opens/closes. */}
         <motion.span
