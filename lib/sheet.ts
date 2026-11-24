@@ -376,6 +376,33 @@ export function slotsForClasses(classes: ClassLevel[]): number[] {
   return Array.from({ length: 9 }, (_, i) => row[i] ?? 0);
 }
 
+// Max HP for a class build using fixed (average) hit points: the first
+// class's full hit die at level 1, then the average roll for every other
+// level, plus the Constitution modifier per level.
+export function averageHp(classes: ClassLevel[], conMod: number): number {
+  let hp = 0;
+  classes.forEach((c, i) => {
+    const die = classCore(c.name)?.hitDie ?? 8;
+    for (let l = 0; l < c.level; l++) {
+      hp += (i === 0 && l === 0 ? die : Math.floor(die / 2) + 1) + conMod;
+    }
+  });
+  return Math.max(hp, 1);
+}
+
+// Hit dice text for a build, grouped by die size: "5d6 + 3d8".
+export function hitDiceString(classes: ClassLevel[]): string {
+  const byDie = new Map<number, number>();
+  for (const c of classes) {
+    const die = classCore(c.name)?.hitDie ?? 8;
+    byDie.set(die, (byDie.get(die) ?? 0) + c.level);
+  }
+  return [...byDie.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([die, count]) => `${count}d${die}`)
+    .join(" + ");
+}
+
 // A blank character in the classic record format.
 export function blankCharacter(name: string): CharData {
   const data: CharData = {

@@ -44,15 +44,19 @@ import {
   ABILITIES,
   ABILITY_NAMES,
   CLASS_CORES,
-  FULL_SLOTS,
-  PACT_SLOTS,
   SKILLS,
+  abilityScores,
+  averageHp,
   blankCharacter,
   classCore,
   classLevelString,
+  hitDiceString,
   mod,
+  parseClasses,
+  slotsForClasses,
   type Ability,
   type CharData,
+  type ClassLevel,
 } from "@/lib/sheet";
 
 type Summary = {
@@ -68,30 +72,11 @@ type Summary = {
 
 const STANDARD_ARRAY = [15, 14, 13, 12, 10, 8];
 
-function slotsForSingleClass(className: string, level: number): number[] {
-  const core = classCore(className);
-  if (!core || core.caster === "none") return Array(9).fill(0);
-  if (core.caster === "pact") {
-    const [count, slotLevel] = PACT_SLOTS[Math.min(level, 20) - 1];
-    const out = Array(9).fill(0);
-    out[slotLevel - 1] = count;
-    return out;
-  }
-  const effective =
-    core.caster === "full"
-      ? level
-      : core.caster === "half"
-        ? Math.ceil(level / 2)
-        : Math.floor(level / 3);
-  if (effective <= 0) return Array(9).fill(0);
-  const row = FULL_SLOTS[Math.min(effective, 20) - 1] ?? [];
-  return Array.from({ length: 9 }, (_, i) => row[i] ?? 0);
-}
-
 export default function LibraryPage() {
   const [characters, setCharacters] = useState<Summary[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<Summary | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Summary | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -222,6 +207,9 @@ export default function LibraryPage() {
                 <Link href={`/characters/${c.id}`} className={buttonVariants({ size: "sm" })}>
                   Open sheet
                 </Link>
+                <Button size="sm" variant="outline" onClick={() => setEditTarget(c)}>
+                  Edit
+                </Button>
                 <Button size="sm" variant="outline" onClick={() => duplicate(c.id)}>
                   Duplicate
                 </Button>
@@ -241,11 +229,22 @@ export default function LibraryPage() {
         </div>
       )}
 
-      <CreateDialog
+      {/* key: each open starts with fresh fields */}
+      <CharacterDialog
+        key={createOpen ? "create-open" : "create"}
         open={createOpen}
         onOpenChange={setCreateOpen}
-        onCreated={load}
+        onSaved={load}
       />
+      {editTarget && (
+        <CharacterDialog
+          key={editTarget.id}
+          editId={editTarget.id}
+          open
+          onOpenChange={(o) => !o && setEditTarget(null)}
+          onSaved={load}
+        />
+      )}
 
       <AlertDialog
         open={deleteTarget !== null}
@@ -272,18 +271,32 @@ export default function LibraryPage() {
   );
 }
 
-function CreateDialog({
+const ALIGNMENTS = [
+  "Lawful Good", "Neutral Good", "Chaotic Good",
+  "Lawful Neutral", "True Neutral", "Chaotic Neutral",
+  "Lawful Evil", "Neutral Evil", "Chaotic Evil",
+];
+const MAX_CLASSES = 4;
+
+// Create a character, or edit an existing one's basics (name, classes with
+// level + subclass, race, background, alignment, ability scores). Editing
+// keeps everything else on the sheet; HP shifts by however much the new
+// build's average HP differs from the old one, so rolled HP is preserved.
+function CharacterDialog({
   open,
   onOpenChange,
-  onCreated,
+  onSaved,
+  editId,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
-  onCreated: () => void;
+  onSaved: () => void;
+  editId?: string;
 }) {
+  const editing = Boolean(editId);
+  const [original, setOriginal] = useState<CharData | null>(null);
   const [name, setName] = useState("");
-  const [className, setClassName] = useState("Wizard");
-  const [subclass, setSubclass] = useState("");
+  const [classes, setClasses] = useState<ClassLevel[]>([{ name: "Wizard", subclass: "", level: 1 }]);
   const [race, setRace] = useState("");
   const [background, setBackground] = useState("");
   const [alignment, setAlignment] = useState("");
@@ -291,181 +304,309 @@ function CreateDialog({
     str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10,
   });
   const [skills, setSkills] = useState<string[]>([]);
-  const core = classCore(className);
+  const [saving, setSaving] = useState(false);
+  const core = classCore(classes[0]?.name ?? "");
+  const total = classes.reduce((sum, c) => sum + c.level, 0);
+  const loaded = !editing || original !== null;
 
-  const create = async () => {
-    const data = blankCharacter(name.trim() || "Unnamed");
-    const classes = [{ name: className, subclass, level: 1 }];
-    data.charClasses = classes.map((c) => ({
-      class: c.name,
-      subclass: c.subclass,
-      level: c.level,
-    }));
-    data.classlevel = classLevelString(classes);
-    data.race = race;
-    data.background = background;
-    data.alignment = alignment;
-    data.manualScores = Object.fromEntries(
-      ABILITIES.map((a) => [a, String(scores[a])]),
-    );
-    for (const s of core?.saves ?? []) data[`savep-${s}`] = true;
-    for (const sk of skills) data[`skp-${sk}`] = true;
-    const hp = (core?.hitDie ?? 8) + mod(scores.con);
-    data.hpmax = String(hp);
-    data.hpcur = String(hp);
-    data.hitdice = `1d${core?.hitDie ?? 8}`;
-    data["hd-total"] = 1;
-    data["hd-used"] = 0;
-    const slots = slotsForSingleClass(className, 1);
-    slots.forEach((n, i) => {
-      data[`slot${i + 1}`] = n ? String(n) : "";
-    });
-    if (core?.spellAbility) {
-      data.spellability = core.spellAbility;
-      data.spellclass = className;
-    }
-    const res = await fetch("/api/characters", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ data }),
-    });
-    const { id } = await res.json();
-    onOpenChange(false);
-    onCreated();
-    if (id) window.location.href = `/characters/${id}`;
+  useEffect(() => {
+    if (!editId) return;
+    let alive = true;
+    fetch(`/api/characters/${editId}`)
+      .then((r) => r.json())
+      .then(({ data }: { data: CharData }) => {
+        if (!alive) return;
+        setOriginal(data);
+        setName(String(data.charname ?? ""));
+        const parsed = parseClasses(data);
+        setClasses(parsed.length ? parsed : [{ name: "Wizard", subclass: "", level: 1 }]);
+        setRace(String(data.race ?? ""));
+        setBackground(String(data.background ?? ""));
+        setAlignment(String(data.alignment ?? ""));
+        setScores(abilityScores(data));
+      });
+    return () => {
+      alive = false;
+    };
+  }, [editId]);
+
+  const updateClass = (i: number, patch: Partial<ClassLevel>) =>
+    setClasses(classes.map((c, j) => (j === i ? { ...c, ...patch } : c)));
+
+  const buildFields = (): Partial<CharData> => {
+    const slots = slotsForClasses(classes);
+    const caster = classes.map((c) => classCore(c.name)).find((c) => c?.spellAbility);
+    return {
+      charname: name.trim() || "Unnamed",
+      charClasses: classes.map((c) => ({ class: c.name, subclass: c.subclass, level: c.level })),
+      classlevel: classLevelString(classes),
+      race,
+      background,
+      alignment,
+      hitdice: hitDiceString(classes),
+      "hd-total": total,
+      ...Object.fromEntries(slots.map((n, i) => [`slot${i + 1}`, n ? String(n) : ""])),
+      ...(caster?.spellAbility ? { spellability: caster.spellAbility, spellclass: caster.name } : {}),
+    };
   };
+
+  const save = async () => {
+    setSaving(true);
+    let id = editId;
+    if (editing && original) {
+      const fields = buildFields();
+      // Same build: keep any hand-tuned slots and spellcasting settings.
+      if (classLevelString(parseClasses(original)) === fields.classlevel) {
+        for (const k of Object.keys(fields)) {
+          if (/^slot\d$|^spell(ability|class)$/.test(k)) delete fields[k];
+        }
+      }
+      const data: CharData = { ...original, ...fields };
+      const oldScores = abilityScores(original);
+      const scoresChanged = ABILITIES.some((a) => oldScores[a] !== scores[a]);
+      if (scoresChanged) {
+        data.manualScores = Object.fromEntries(ABILITIES.map((a) => [a, String(scores[a])]));
+      }
+      // Keep rolled HP: shift by the change in average HP.
+      const delta =
+        averageHp(classes, mod(scores.con)) -
+        averageHp(parseClasses(original), mod(oldScores.con));
+      const num = (v: unknown) => parseInt(String(v ?? "0"), 10) || 0;
+      data.hpmax = String(Math.max(1, num(original.hpmax) + delta));
+      data.hpcur = String(Math.max(0, Math.min(num(original.hpcur) + delta, num(data.hpmax))));
+      data["hd-used"] = Math.min(num(original["hd-used"]), total);
+      await fetch(`/api/characters/${editId}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ data }),
+      });
+    } else {
+      const data: CharData = { ...blankCharacter(name.trim() || "Unnamed"), ...buildFields() };
+      data.manualScores = Object.fromEntries(ABILITIES.map((a) => [a, String(scores[a])]));
+      // Saving throws and skills come from the first class.
+      for (const s of core?.saves ?? []) data[`savep-${s}`] = true;
+      for (const sk of skills) data[`skp-${sk}`] = true;
+      const hp = averageHp(classes, mod(scores.con));
+      data.hpmax = String(hp);
+      data.hpcur = String(hp);
+      data["hd-used"] = 0;
+      const res = await fetch("/api/characters", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ data }),
+      });
+      id = (await res.json()).id;
+    }
+    setSaving(false);
+    onOpenChange(false);
+    onSaved();
+    if (!editing && id) window.location.href = `/characters/${id}`;
+  };
+
+  const valid = loaded && total >= 1 && total <= 20 && classes.every((c) => c.name && c.level >= 1);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle className="font-medium">Create character</DialogTitle>
+          <DialogTitle className="font-medium">
+            {editing ? "Edit character" : "Create character"}
+          </DialogTitle>
         </DialogHeader>
-        <div className="grid gap-4">
-          <div className="grid gap-2">
-            <Label htmlFor="cc-name">Name</Label>
-            <Input id="cc-name" value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
+        {!loaded ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : (
+          <div className="grid gap-4">
             <div className="grid gap-2">
-              <Label>Class</Label>
-              <Select value={className} onValueChange={(v) => { setClassName(v ?? "Wizard"); setSkills([]); setSubclass(""); }}>
+              <Label htmlFor="cc-name">Name</Label>
+              <Input id="cc-name" value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+
+            <div className="grid gap-2">
+              <div className="flex items-center gap-2">
+                <Label>Classes</Label>
+                <span className={total > 20 ? "text-sm text-destructive" : "text-sm text-muted-foreground"}>
+                  Total level {total}
+                  {total > 20 && " (max 20)"}
+                </span>
+                {classes.length < MAX_CLASSES && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="ml-auto"
+                    onClick={() => {
+                      const unused = CLASS_CORES.find((c) => !classes.some((x) => x.name === c.name));
+                      setClasses([...classes, { name: unused?.name ?? "Fighter", subclass: "", level: 1 }]);
+                    }}
+                  >
+                    + Add class
+                  </Button>
+                )}
+              </div>
+              {classes.map((c, i) => (
+                <div
+                  key={i}
+                  className="grid grid-cols-[minmax(0,1fr)_4.5rem] gap-2 rounded-lg border p-2 sm:grid-cols-[9rem_4.5rem_minmax(0,1fr)_auto]"
+                >
+                  <Select
+                    value={c.name}
+                    onValueChange={(v) => {
+                      updateClass(i, { name: v ?? c.name, subclass: "" });
+                      if (i === 0) setSkills([]);
+                    }}
+                  >
+                    <SelectTrigger aria-label={`Class ${i + 1}`} className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CLASS_CORES.filter(
+                        (cc) => cc.name === c.name || !classes.some((x) => x.name === cc.name),
+                      ).map((cc) => (
+                        <SelectItem key={cc.name} value={cc.name}>
+                          {cc.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={c.level}
+                    aria-label={`${c.name} level`}
+                    onChange={(e) =>
+                      updateClass(i, { level: Math.max(1, Math.min(20, parseInt(e.target.value || "1", 10))) })
+                    }
+                  />
+                  <div className="col-span-2 flex gap-2 sm:col-span-1 sm:contents">
+                    <div className="min-w-0 flex-1">
+                      {/* key: a new class starts the dropdown fresh */}
+                      <SubclassSelect
+                        key={c.name}
+                        className={c.name}
+                        value={c.subclass}
+                        onChange={(sub) => updateClass(i, { subclass: sub })}
+                      />
+                    </div>
+                    {classes.length > 1 && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        aria-label={`Remove ${c.name}`}
+                        onClick={() => setClasses(classes.filter((_, j) => j !== i))}
+                      >
+                        ✕
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {classes.length > 1 && !editing && (
+                <p className="text-xs text-muted-foreground">
+                  Saving throws and skills come from the first class.
+                </p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <Label htmlFor="cc-race">Race</Label>
+                <RaceSelect id="cc-race" value={race} onChange={setRace} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="cc-bg">Background</Label>
+                <Input id="cc-bg" value={background} onChange={(e) => setBackground(e.target.value)} />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label>Alignment</Label>
+              <Select value={alignment} onValueChange={(v) => setAlignment(v ?? "")}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Choose" />
                 </SelectTrigger>
                 <SelectContent>
-                  {CLASS_CORES.map((c) => (
-                    <SelectItem key={c.name} value={c.name}>
-                      {c.name}
-                    </SelectItem>
+                  {ALIGNMENTS.map((a) => (
+                    <SelectItem key={a} value={a}>{a}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="cc-sub">Subclass</Label>
-              {/* key: a new class starts the dropdown fresh */}
-              <SubclassSelect
-                key={className}
-                id="cc-sub"
-                className={className}
-                value={subclass}
-                onChange={setSubclass}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="cc-race">Race</Label>
-              <RaceSelect id="cc-race" value={race} onChange={setRace} />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="cc-bg">Background</Label>
-              <Input id="cc-bg" value={background} onChange={(e) => setBackground(e.target.value)} />
-            </div>
-          </div>
-          <div className="grid gap-2">
-            <Label>Alignment</Label>
-            <Select value={alignment} onValueChange={(v) => setAlignment(v ?? "")}>
-              <SelectTrigger>
-                <SelectValue placeholder="Choose" />
-              </SelectTrigger>
-              <SelectContent>
-                {["Lawful Good", "Neutral Good", "Chaotic Good", "Lawful Neutral", "True Neutral", "Chaotic Neutral", "Lawful Evil", "Neutral Evil", "Chaotic Evil"].map((a) => (
-                  <SelectItem key={a} value={a}>{a}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid gap-2">
-            <div className="flex items-center gap-2">
-              <Label>Ability scores</Label>
-              <Button
-                type="button" size="sm" variant="outline"
-                onClick={() =>
-                  setScores(Object.fromEntries(ABILITIES.map((a, i) => [a, STANDARD_ARRAY[i]])) as Record<Ability, number>)
-                }
-              >
-                Standard array
-              </Button>
-              <Button
-                type="button" size="sm" variant="outline"
-                onClick={() =>
-                  setScores(
-                    Object.fromEntries(
-                      ABILITIES.map((a) => {
-                        const rolls = Array.from({ length: 4 }, () => 1 + Math.floor(Math.random() * 6)).sort((x, y) => y - x);
-                        return [a, rolls[0] + rolls[1] + rolls[2]];
-                      }),
-                    ) as Record<Ability, number>,
-                  )
-                }
-              >
-                Roll 4d6
-              </Button>
-            </div>
-            <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
-              {ABILITIES.map((a) => (
-                <div key={a} className="grid gap-1">
-                  <Label htmlFor={`cc-${a}`} className="text-xs">
-                    {ABILITY_NAMES[a]} ({mod(scores[a]) >= 0 ? "+" : ""}{mod(scores[a])})
-                  </Label>
-                  <Input
-                    id={`cc-${a}`} type="number" value={scores[a]}
-                    onChange={(e) => setScores({ ...scores, [a]: parseInt(e.target.value || "0", 10) })}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-          {core && (
-            <div className="grid gap-2">
-              <Label>
-                Skill proficiencies (choose {core.skillCount})
-              </Label>
-              <div className="grid grid-cols-2 gap-1.5">
-                {SKILLS.filter((s) => core.skillsFrom.includes(s.key)).map((s) => (
-                  <label key={s.key} className="flex items-center gap-2 text-sm">
-                    <Checkbox
-                      checked={skills.includes(s.key)}
-                      onCheckedChange={(checked) =>
-                        setSkills(
-                          checked
-                            ? [...skills, s.key].slice(-core.skillCount)
-                            : skills.filter((k) => k !== s.key),
-                        )
-                      }
+              <div className="flex flex-wrap items-center gap-2">
+                <Label>Ability scores</Label>
+                <Button
+                  type="button" size="sm" variant="outline"
+                  onClick={() =>
+                    setScores(Object.fromEntries(ABILITIES.map((a, i) => [a, STANDARD_ARRAY[i]])) as Record<Ability, number>)
+                  }
+                >
+                  Standard array
+                </Button>
+                <Button
+                  type="button" size="sm" variant="outline"
+                  onClick={() =>
+                    setScores(
+                      Object.fromEntries(
+                        ABILITIES.map((a) => {
+                          const rolls = Array.from({ length: 4 }, () => 1 + Math.floor(Math.random() * 6)).sort((x, y) => y - x);
+                          return [a, rolls[0] + rolls[1] + rolls[2]];
+                        }),
+                      ) as Record<Ability, number>,
+                    )
+                  }
+                >
+                  Roll 4d6
+                </Button>
+              </div>
+              <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+                {ABILITIES.map((a) => (
+                  <div key={a} className="grid gap-1">
+                    <Label htmlFor={`cc-${a}`} className="text-xs">
+                      {ABILITY_NAMES[a]} ({mod(scores[a]) >= 0 ? "+" : ""}{mod(scores[a])})
+                    </Label>
+                    <Input
+                      id={`cc-${a}`} type="number" value={scores[a]}
+                      onChange={(e) => setScores({ ...scores, [a]: parseInt(e.target.value || "0", 10) })}
                     />
-                    {s.name}
-                  </label>
+                  </div>
                 ))}
               </div>
             </div>
-          )}
-        </div>
+            {core && !editing && (
+              <div className="grid gap-2">
+                <Label>
+                  Skill proficiencies (choose {core.skillCount})
+                </Label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {SKILLS.filter((s) => core.skillsFrom.includes(s.key)).map((s) => (
+                    <label key={s.key} className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={skills.includes(s.key)}
+                        onCheckedChange={(checked) =>
+                          setSkills(
+                            checked
+                              ? [...skills, s.key].slice(-core.skillCount)
+                              : skills.filter((k) => k !== s.key),
+                          )
+                        }
+                      />
+                      {s.name}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={create}>Create and open</Button>
+          <Button onClick={save} disabled={!valid || saving}>
+            {saving ? "Saving…" : editing ? "Save changes" : "Create and open"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
