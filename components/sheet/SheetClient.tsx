@@ -1506,6 +1506,15 @@ function AddSpellDialog({
 }) {
   const [q, setQ] = useState("");
   const [results, setResults] = useState<SpellHit[]>([]);
+  // Which spells to list: ones the classes can learn, the rest, or all.
+  const [filter, setFilter] = useState<"learn" | "other" | "all">("learn");
+  const learnCount = results.filter((r) => r.group).length;
+  const otherCount = results.length - learnCount;
+  // A character with no spellcasting class has nothing to learn: show all.
+  const effective = filter === "learn" && classes.length > 0 && learnCount === 0 && !q ? "all" : filter;
+  const shown = results.filter((r) =>
+    effective === "all" ? true : effective === "learn" ? r.group : !r.group,
+  );
   const classKey = JSON.stringify(classes);
   useEffect(() => {
     if (!open) return;
@@ -1529,11 +1538,41 @@ function AddSpellDialog({
           placeholder="Search 510 spells…"
           aria-label="Search spells"
         />
+        <div role="radiogroup" aria-label="Filter spells" className="flex gap-1 rounded-lg border p-1">
+          {(
+            [
+              ["learn", "Can learn", "可學習", learnCount],
+              ["other", "Can't learn", "不可學習", otherCount],
+              ["all", "All", "全部", results.length],
+            ] as const
+          ).map(([key, label, zh, count]) => (
+            <button
+              key={key}
+              type="button"
+              role="radio"
+              aria-checked={effective === key}
+              onClick={() => setFilter(key)}
+              className={cn(
+                "flex-1 rounded-md px-2 py-1 text-sm transition-colors",
+                effective === key ? "bg-primary text-primary-foreground" : "hover:bg-muted",
+              )}
+            >
+              {label}
+              <span className="ml-1 text-[0.8em] opacity-80">{zh}</span>
+              <span className="ml-1.5 text-[0.8em] opacity-70">{count}</span>
+            </button>
+          ))}
+        </div>
         <ScrollArea className="h-72">
           <div className="grid gap-1">
-            {results.map((spell, i) => (
+            {shown.length === 0 && (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                {effective === "learn" ? "No learnable spells match." : "No spells match."}
+              </p>
+            )}
+            {shown.map((spell, i) => (
               <Fragment key={spell.name}>
-              {(i === 0 || results[i - 1].group !== spell.group) && (
+              {(i === 0 || shown[i - 1].group !== spell.group) && (
                 <p className="sticky top-0 z-10 bg-popover pt-2 pb-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                   {spell.group ? `${spell.group} spells` : "Other spells"}
                   {spell.group && zhOf(spell.group.replace(/ \(always prepared\)$/, "")) && (
