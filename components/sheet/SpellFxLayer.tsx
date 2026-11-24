@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { SPELL_FX_EVENT, vfxUrl, type BuiltInFx, type SpellFxDetail } from "@/lib/spellFx";
+import { SPELL_FX_EVENT, type BuiltInFx, type SpellFxDetail } from "@/lib/spellFx";
 
-type Play = SpellFxDetail & { id: number; video: boolean };
+type Play = SpellFxDetail & { id: number; useVideo: boolean };
 
-// Spells whose public/vfx/<name>.webm turned out to be missing — don't retry.
-const noVideo = new Set<string>();
-
-// Full-screen, click-through layer that plays spell effects on cast.
+// Plays spell effects on cast. Built-in effects live in a click-through
+// full-screen layer; videos are separate top-level elements so their
+// `mix-blend-mode: screen` blends with the sheet underneath (inside the
+// layer's own stacking context they would only blend with empty space).
 export function SpellFxLayer() {
   const [plays, setPlays] = useState<Play[]>([]);
   const reduced = useReducedMotion();
@@ -17,44 +17,49 @@ export function SpellFxLayer() {
   useEffect(() => {
     const onFx = (e: Event) => {
       const d = (e as CustomEvent<SpellFxDetail>).detail;
-      const video = !noVideo.has(d.spell);
-      if (!video && !d.builtIn) return;
-      setPlays((p) => [...p, { ...d, id: Date.now() + Math.random(), video }]);
+      setPlays((p) => [...p, { ...d, id: Date.now() + Math.random(), useVideo: Boolean(d.video) && !reducedRef.current }]);
     };
     window.addEventListener(SPELL_FX_EVENT, onFx);
     return () => window.removeEventListener(SPELL_FX_EVENT, onFx);
   }, []);
+  // Reduced motion: skip videos, use the gentle built-in fallback.
+  const reducedRef = useRef(false);
+  reducedRef.current = Boolean(reduced);
 
   const done = (id: number) => setPlays((p) => p.filter((x) => x.id !== id));
-  // Video missing → remember, then fall back to the built-in effect (if any).
-  const videoFailed = (play: Play) => {
-    noVideo.add(play.spell);
+  // A video that can't play falls back to the built-in effect (if any).
+  const videoFailed = (play: Play) =>
     setPlays((p) =>
-      play.builtIn ? p.map((x) => (x.id === play.id ? { ...x, video: false } : x)) : p.filter((x) => x.id !== play.id),
+      play.builtIn ? p.map((x) => (x.id === play.id ? { ...x, useVideo: false } : x)) : p.filter((x) => x.id !== play.id),
     );
-  };
 
   return (
-    <div aria-hidden className="pointer-events-none fixed inset-0 z-[95] overflow-hidden">
-      <AnimatePresence>
-        {plays.map((play) =>
-          play.video ? (
-            <video
-              key={play.id}
-              src={vfxUrl(play.spell)}
-              autoPlay
-              muted
-              playsInline
-              onEnded={() => done(play.id)}
-              onError={() => videoFailed(play)}
-              className="absolute top-1/2 left-1/2 size-[min(90vw,90vh)] -translate-x-1/2 -translate-y-1/2 object-contain"
-            />
-          ) : play.builtIn ? (
-            <BuiltIn key={play.id} kind={play.builtIn} reduced={Boolean(reduced)} onDone={() => done(play.id)} />
-          ) : null,
-        )}
-      </AnimatePresence>
-    </div>
+    <>
+      {plays
+        .filter((play) => play.useVideo && play.video)
+        .map((play) => (
+          <video
+            key={play.id}
+            aria-hidden
+            src={play.video!}
+            autoPlay
+            muted
+            playsInline
+            onEnded={() => done(play.id)}
+            onError={() => videoFailed(play)}
+            className="pointer-events-none fixed top-1/2 left-1/2 z-[95] size-[min(90vw,90vh)] -translate-x-1/2 -translate-y-1/2 object-contain mix-blend-screen"
+          />
+        ))}
+      <div aria-hidden className="pointer-events-none fixed inset-0 z-[95] overflow-hidden">
+        <AnimatePresence>
+          {plays
+            .filter((play) => !play.useVideo && play.builtIn)
+            .map((play) => (
+              <BuiltIn key={play.id} kind={play.builtIn!} reduced={Boolean(reduced)} onDone={() => done(play.id)} />
+            ))}
+        </AnimatePresence>
+      </div>
+    </>
   );
 }
 

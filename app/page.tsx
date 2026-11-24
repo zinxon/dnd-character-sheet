@@ -152,13 +152,13 @@ export default function LibraryPage() {
             <Zh text="Characters" />
           </h1>
           <div className="ml-auto flex gap-2">
-          <Button onClick={() => setCreateOpen(true)}>New character</Button>
-          <Button variant="outline" onClick={() => fileRef.current?.click()}>
-            Import
-          </Button>
-          <Link href="/login" className={buttonVariants({ variant: "outline" })}>
-            Sign in
-          </Link>
+            <Button onClick={() => setCreateOpen(true)}>New character</Button>
+            <Button variant="outline" onClick={() => fileRef.current?.click()}>
+              Import
+            </Button>
+            <Link href="/login" className={buttonVariants({ variant: "outline" })}>
+              Sign in
+            </Link>
           <input
             ref={fileRef}
             type="file"
