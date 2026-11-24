@@ -22,10 +22,13 @@ export function Portrait({
   src,
   name,
   onChange,
+  className = "size-24",
 }: {
   src: string;
   name: string;
   onChange: (dataUrl: string) => void;
+  /** Size classes for the box (default 96px). */
+  className?: string;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
@@ -45,7 +48,7 @@ export function Portrait({
       <button
         type="button"
         onClick={() => input.current?.click()}
-        className="flex size-24 items-center justify-center overflow-hidden rounded-lg border bg-muted text-muted-foreground hover:border-foreground/30"
+        className={`flex ${className} items-center justify-center overflow-hidden rounded-lg border bg-muted text-muted-foreground hover:border-foreground/30`}
         aria-label={src ? "Change portrait" : "Upload portrait"}
         title={error || (src ? "Change portrait" : "Upload portrait")}
       >

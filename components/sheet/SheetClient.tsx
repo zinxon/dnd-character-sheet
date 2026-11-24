@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,6 +34,24 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Zh, zhOf } from "@/components/Zh";
 import { playSpellSound } from "@/lib/spellSound";
 import { Portrait } from "@/components/sheet/Portrait";
+import { DiceRail } from "@/components/sheet/DiceRail";
+import { AbilityBox, BonusButton, Panel, ProfDot, StatBox } from "@/components/sheet/blocks";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  BackpackIcon,
+  BadgeCheckIcon,
+  BookOpenIcon,
+  DumbbellIcon,
+  LayoutGridIcon,
+  NotebookPenIcon,
+  ScrollTextIcon,
+  SparklesIcon,
+  SwordsIcon,
+  WandSparklesIcon,
+  XIcon,
+} from "lucide-react";
+import { useIsMobile } from "@/components/sheet/useIsMobile";
+import { cn } from "@/lib/utils";
 import {
   ABILITIES,
   ABILITY_NAMES,
@@ -47,7 +65,6 @@ import {
   fmt,
   mod,
   parseClasses,
-  passivePerception,
   profBonus,
   parseDice,
   rollDice,
@@ -81,6 +98,17 @@ type SpellDetail = {
 
 type LogEntry = RollResult & { label: string; at: number };
 
+type MobileSection =
+  | "abilities"
+  | "skills"
+  | "actions"
+  | "inventory"
+  | "spells"
+  | "features"
+  | "proficiencies"
+  | "story"
+  | "notes";
+
 // Dice the 3D roller has meshes for; anything else rolls instantly.
 const ANIMATED_FACES = [4, 6, 8, 10, 12, 20, 100];
 const MAX_ANIMATED_DICE = 20;
@@ -107,6 +135,10 @@ export default function SheetClient({
   const [diceOpen, setDiceOpen] = useState(false);
   const [levelUpOpen, setLevelUpOpen] = useState(false);
   const [shortRestOpen, setShortRestOpen] = useState(false);
+  const [hpAmount, setHpAmount] = useState("");
+  const isMobile = useIsMobile();
+  const [mobileSection, setMobileSection] = useState<MobileSection>("abilities");
+  const [menuOpen, setMenuOpen] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const set = useCallback((patch: Partial<CharData>) => {
@@ -213,380 +245,354 @@ export default function SheetClient({
   const acComputed = 10 + mod(scores.dex) + n(data.armormod);
   const acShown = data.acManual ? n(data.acManual) : acComputed;
 
-  return (
-    <main className="mx-auto max-w-6xl p-4 sm:p-6">
-      <header className="mb-4 flex flex-wrap items-start gap-3">
-        <Portrait
-          src={s(data.portrait)}
-          name={s(data.charname)}
-          onChange={(portrait) => set({ portrait })}
-        />
-        <div className="min-w-56 flex-1">
-          <Input
-            value={s(data.charname)}
-            onChange={(e) => set({ charname: e.target.value })}
-            className="h-auto border-none px-0 text-2xl font-medium shadow-none focus-visible:ring-0"
-            aria-label="Character name"
-          />
-          <p className="text-sm text-muted-foreground">
-            {s(data.classlevel)}
-            {data.race ? ` · ${s(data.race)}` : ""}
-            {data.background ? ` · ${s(data.background)}` : ""}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {saveState === "saved"
-              ? "Saved to Neon"
-              : saveState === "saving"
-                ? "Saving…"
-                : "Unsaved changes"}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/" className={buttonVariants({ variant: "outline" })}>
-            Library
-          </Link>
-          <Button variant="outline" onClick={() => setShortRestOpen(true)}>
-            Short rest
-            <Zh text="Short Rest" />
-          </Button>
-          <Button variant="outline" onClick={longRest}>
-            Long rest
-            <Zh text="Long Rest" />
-          </Button>
-          <Button variant="outline" onClick={() => setDiceOpen(true)}>
-            Dice roller
-          </Button>
-          <Button variant="outline" onClick={() => window.print()}>
-            Print
-          </Button>
-          <Button onClick={() => setLevelUpOpen(true)}>
-            Level up
-            <Zh text="Level Up" />
-          </Button>
-        </div>
-      </header>
+  const darkBtn =
+    "border-white/20 bg-white/5 text-zinc-50 hover:bg-white/15 hover:text-white [&_span]:text-zinc-400";
+  const passive = (key: string) => 10 + skillBonus(data, key);
+  const numInput =
+    "bg-transparent [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none";
 
-      <div className="mb-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-        <span>
-          Proficiency bonus <span className="font-medium">{fmt(pb)}</span>
-          <Zh text="Proficiency Bonus" />
-        </span>
-        <label className="flex items-center gap-2">
-          <Checkbox
-            checked={Boolean(data.inspiration)}
-            onCheckedChange={(c) => set({ inspiration: Boolean(c) })}
-          />
-          Inspiration
-          <Zh text="Inspiration" />
-        </label>
-        <span className="flex items-center gap-2">
-          <Label htmlFor="xp" className="font-normal">Experience</Label>
-          <Input
-            id="xp"
-            type="number"
-            className="w-28"
-            value={s(data.xp)}
-            onChange={(e) => set({ xp: e.target.value })}
-          />
-          {nextThreshold != null && (
-            <span className="text-muted-foreground">
-              Level {level + 1} at {nextThreshold.toLocaleString()} XP
-              {xp >= nextThreshold ? " — ready to level up" : ""}
+  // ── Pieces, laid out differently on desktop and phone ──────────────
+  const abilityBoxes = ABILITIES.map((a) => (
+    <AbilityBox
+      key={a}
+      name={ABILITY_NAMES[a]}
+      score={scores[a]}
+      onRoll={() => roll(`${ABILITY_NAMES[a]} check`, String(mod(scores[a])))}
+      onScore={(v) =>
+        set({
+          manualScores: {
+            ...(data.manualScores as Record<string, unknown>),
+            [a]: v,
+          },
+        })
+      }
+    />
+  ));
+
+  const speedInput = (
+    <input
+      type="number"
+      value={n(data.speedBase) || 30}
+      onChange={(e) => set({ speedBase: parseInt(e.target.value || "0", 10) })}
+      aria-label="Walking speed"
+      className={cn("w-10 text-right text-2xl font-medium", numInput)}
+    />
+  );
+
+  const acInput = (
+    <input
+      type="number"
+      value={acShown}
+      onChange={(e) => set({ acManual: e.target.value })}
+      aria-label="Armor class"
+      className={cn("w-12 text-center text-3xl font-medium", numInput)}
+    />
+  );
+
+  const inspirationButton = (className?: string) => (
+    <button
+      type="button"
+      onClick={() => set({ inspiration: !data.inspiration })}
+      aria-pressed={Boolean(data.inspiration)}
+      className={cn(
+        "flex flex-col items-center justify-center rounded-xl border-2 px-2 py-1.5 text-center shadow-xs",
+        data.inspiration
+          ? "border-amber-500 bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200"
+          : "bg-card",
+        className,
+      )}
+    >
+      <SparklesIcon className="size-6" />
+      <span className="mt-1 text-[0.65rem] leading-tight font-semibold tracking-wider uppercase">
+        Inspiration
+        <span className="block font-normal tracking-normal opacity-70">{zhOf("Inspiration")}</span>
+      </span>
+    </button>
+  );
+
+  const hpBox = (className?: string) => (
+    <div className={cn("flex min-w-0 gap-3 rounded-xl border-2 bg-card p-2 shadow-xs", className)}>
+      <div className="grid w-20 shrink-0 grid-cols-1 content-center gap-1">
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 text-xs text-emerald-700 dark:text-emerald-400"
+          onClick={() => n(hpAmount) && (applyHeal(n(hpAmount)), setHpAmount(""))}
+        >
+          Heal
+        </Button>
+        <input
+          type="number"
+          value={hpAmount}
+          onChange={(e) => setHpAmount(e.target.value)}
+          aria-label="Hit point amount"
+          className={cn("h-7 w-full min-w-0 rounded-md border bg-background text-center text-sm", numInput)}
+        />
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 text-xs text-red-700 dark:text-red-400"
+          onClick={() => n(hpAmount) && (applyDamage(n(hpAmount)), setHpAmount(""))}
+        >
+          Damage
+        </Button>
+      </div>
+      <div className="grid min-w-0 flex-1 grid-cols-3 items-end gap-1 text-center">
+        {(
+          [
+            ["Current", "hpcur"],
+            ["Max", "hpmax"],
+            ["Temp", "hptmp"],
+          ] as const
+        ).map(([label, key]) => (
+          <label key={key} className="grid gap-0.5">
+            <span className="text-[0.65rem] leading-tight font-semibold tracking-wider uppercase">
+              {label}
+              <span className="block font-normal tracking-normal text-muted-foreground">{zhOf(label)}</span>
             </span>
-          )}
-        </span>
-        <span>
-          Passive perception <span className="font-medium">{passivePerception(data)}</span>
+            <input
+              type="number"
+              value={s(data[key])}
+              placeholder="—"
+              onChange={(e) => set({ [key]: e.target.value })}
+              aria-label={`${label} hit points`}
+              className={cn("w-full text-center text-3xl font-medium", numInput)}
+            />
+          </label>
+        ))}
+        <span className="col-span-3 text-[0.65rem] font-semibold tracking-wider uppercase">
+          Hit points <span className="font-normal tracking-normal text-muted-foreground">{zhOf("Hit Points")}</span>
         </span>
       </div>
+    </div>
+  );
 
-      <div className="mb-4 flex flex-wrap items-center gap-1.5">
-        <span className="mr-1 text-sm">
-          Conditions
-          <Zh text="Conditions" />:
-        </span>
-        {CONDITIONS.map((c) => {
-          const active = conditions.includes(c);
+  const savesPanel = (
+    <Panel title="Saving Throws">
+      <div className="grid grid-cols-2 gap-2 text-sm">
+        {ABILITIES.map((a) => (
+          <div key={a} className="flex items-center gap-1.5 rounded-lg border px-2 py-1">
+            <ProfDot
+              prof={Boolean(data[`savep-${a}`])}
+              onCycle={() => set({ [`savep-${a}`]: !data[`savep-${a}`] })}
+              label={`${ABILITY_NAMES[a]} save proficiency`}
+            />
+            <span className="flex-1 font-semibold uppercase">{a}</span>
+            <BonusButton
+              value={saveBonus(data, a)}
+              onClick={() => roll(`${ABILITY_NAMES[a]} save`, String(saveBonus(data, a)))}
+              label={`Roll ${ABILITY_NAMES[a]} save`}
+            />
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+
+  const sensesPanel = (
+    <Panel title="Senses">
+      <div className="grid gap-2 text-sm">
+        {(
+          [
+            ["Passive Perception", "perception"],
+            ["Passive Investigation", "investigation"],
+            ["Passive Insight", "insight"],
+          ] as const
+        ).map(([label, key]) => (
+          <div key={key} className="flex items-center gap-2 rounded-full border pr-3">
+            <span className="flex size-9 items-center justify-center rounded-full border-r bg-muted font-semibold">
+              {passive(key)}
+            </span>
+            <span className="text-xs font-semibold uppercase">{label}</span>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+
+  const hitDicePanel = (
+    <Panel title="Hit Dice">
+      <div className="grid gap-2 text-sm">
+        <div>
+          {s(data.hitdice) || "—"}{" "}
+          <span className="text-muted-foreground">({n(data["hd-total"]) - n(data["hd-used"])} left)</span>
+        </div>
+        <div className="grid gap-1">
+          <span className="text-xs font-semibold uppercase">
+            Death saves <span className="font-normal normal-case text-muted-foreground">{zhOf("Death Saves")}</span>
+          </span>
+          {(
+            [
+              ["Success", "dss"],
+              ["Failure", "dsf"],
+            ] as const
+          ).map(([label, prefix]) => (
+            <span key={prefix} className="flex items-center gap-1.5">
+              <span className="w-16">{label}</span>
+              {[0, 1, 2].map((i) => (
+                <Checkbox
+                  key={i}
+                  checked={Boolean(data[`${prefix}-${i}`])}
+                  onCheckedChange={(c) => set({ [`${prefix}-${i}`]: Boolean(c) })}
+                  aria-label={`Death save ${label.toLowerCase()} ${i + 1}`}
+                />
+              ))}
+            </span>
+          ))}
+        </div>
+      </div>
+    </Panel>
+  );
+
+  const proficienciesPanel = (
+    <Panel title="Proficiencies and Languages">
+      <div className="grid gap-2 text-sm whitespace-pre-wrap">
+        {s(data.proficiencies) || <span className="text-muted-foreground">None yet</span>}
+        {data["proficiencies-zh"] ? (
+          <span className="text-muted-foreground">{s(data["proficiencies-zh"])}</span>
+        ) : null}
+        <span className="text-xs text-muted-foreground">Edit in Features &amp; Traits.</span>
+      </div>
+    </Panel>
+  );
+
+  const skillsPanel = (
+    <Panel title="Skills">
+      <div className="grid grid-cols-[auto_auto_1fr_auto] items-center gap-x-2 gap-y-1 text-sm">
+        <span className="text-[0.6rem] font-semibold text-muted-foreground uppercase">Prof</span>
+        <span className="text-[0.6rem] font-semibold text-muted-foreground uppercase">Mod</span>
+        <span className="text-[0.6rem] font-semibold text-muted-foreground uppercase">Skill</span>
+        <span className="text-right text-[0.6rem] font-semibold text-muted-foreground uppercase">Bonus</span>
+        {SKILLS.map((skill) => {
+          const prof = Boolean(data[`skp-${skill.key}`]);
+          const expert = Boolean(data[`ske-${skill.key}`]);
           return (
-            <Button
-              key={c}
-              size="sm"
-              variant={active ? "default" : "outline"}
-              onClick={() =>
-                set({
-                  conditions: active
-                    ? conditions.filter((x) => x !== c)
-                    : [...conditions, c],
-                })
-              }
-            >
-              {c}
-              {zhOf(c) ? <span className="ml-1 text-[0.8em] opacity-80">{zhOf(c)}</span> : null}
-            </Button>
+            <Fragment key={skill.key}>
+              <ProfDot
+                prof={prof}
+                expert={expert}
+                label={`${skill.name} proficiency`}
+                // none → proficient → expertise → none
+                onCycle={() =>
+                  set(
+                    !prof
+                      ? { [`skp-${skill.key}`]: true, [`ske-${skill.key}`]: false }
+                      : !expert
+                        ? { [`ske-${skill.key}`]: true }
+                        : { [`skp-${skill.key}`]: false, [`ske-${skill.key}`]: false },
+                  )
+                }
+              />
+              <span className="text-xs text-muted-foreground uppercase">{skill.ability}</span>
+              <span className="truncate border-b py-1">
+                {skill.name}
+                <Zh text={skill.name} />
+              </span>
+              <BonusButton
+                value={skillBonus(data, skill.key)}
+                onClick={() => roll(skill.name, String(skillBonus(data, skill.key)))}
+                label={`Roll ${skill.name}`}
+              />
+            </Fragment>
           );
         })}
       </div>
+    </Panel>
+  );
 
-      <Tabs defaultValue="core">
-        <TabsList className="flex flex-wrap">
-          <TabsTrigger value="core">Core<Zh text="Core" /></TabsTrigger>
-          <TabsTrigger value="spells">Spells<Zh text="Spells" /></TabsTrigger>
-          <TabsTrigger value="inventory">Inventory<Zh text="Inventory" /></TabsTrigger>
-          <TabsTrigger value="features">Features<Zh text="Features" /></TabsTrigger>
-          <TabsTrigger value="story">Background<Zh text="Background" /></TabsTrigger>
-          <TabsTrigger value="notes">Notes<Zh text="Notes" /></TabsTrigger>
-        </TabsList>
+  const defensesField = (
+    <Textarea
+      value={s(data.defenses)}
+      onChange={(e) => set({ defenses: e.target.value })}
+      rows={2}
+      placeholder="Resistances, immunities, vulnerabilities"
+      aria-label="Defenses"
+      className="min-h-0 resize-none border-none p-0 text-sm shadow-none focus-visible:ring-0"
+    />
+  );
 
-        <TabsContent value="core" className="mt-4">
-          <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
-            <div className="grid gap-4">
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-                {ABILITIES.map((a) => (
-                  <Card key={a}>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium">
-                        {ABILITY_NAMES[a]}
-                        <Zh text={ABILITY_NAMES[a]} />
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="grid gap-2">
-                      <Button
-                        variant="outline"
-                        className="h-12 text-xl font-medium"
-                        onClick={() => roll(`${ABILITY_NAMES[a]} check`, String(mod(scores[a])))}
-                      >
-                        {fmt(mod(scores[a]))}
-                      </Button>
-                      <Input
-                        type="number"
-                        value={scores[a]}
-                        aria-label={`${ABILITY_NAMES[a]} score`}
-                        onChange={(e) =>
-                          set({
-                            manualScores: {
-                              ...(data.manualScores as Record<string, unknown>),
-                              [a]: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                      <div className="flex items-center gap-1.5 text-sm">
-                        <Checkbox
-                          checked={Boolean(data[`savep-${a}`])}
-                          onCheckedChange={(c) => set({ [`savep-${a}`]: Boolean(c) })}
-                          aria-label={`${ABILITY_NAMES[a]} save proficiency`}
-                        />
-                        <button
-                          type="button"
-                          className="flex-1 text-left"
-                          onClick={() => roll(`${ABILITY_NAMES[a]} save`, String(saveBonus(data, a)))}
-                        >
-                          Save {fmt(saveBonus(data, a))}
-                        </button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base font-medium">
-                    Skills
-                    <Zh text="Skills" />
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-x-8 gap-y-1 sm:grid-cols-2">
-                    {SKILLS.map((skill) => (
-                      <div key={skill.key} className="flex items-center gap-1.5 text-sm">
-                        <Checkbox
-                          checked={Boolean(data[`skp-${skill.key}`])}
-                          onCheckedChange={(c) => set({ [`skp-${skill.key}`]: Boolean(c) })}
-                          aria-label={`${skill.name} proficiency`}
-                        />
-                        <Checkbox
-                          checked={Boolean(data[`ske-${skill.key}`])}
-                          onCheckedChange={(c) => set({ [`ske-${skill.key}`]: Boolean(c) })}
-                          aria-label={`${skill.name} expertise`}
-                        />
-                        <button
-                          type="button"
-                          className="w-10 text-left font-medium"
-                          onClick={() => roll(skill.name, String(skillBonus(data, skill.key)))}
-                        >
-                          {fmt(skillBonus(data, skill.key))}
-                        </button>
-                        <span>
-                          {skill.name}
-                          <Zh text={skill.name} />
-                        </span>
-                        <span className="ml-auto text-xs text-muted-foreground uppercase">
-                          {skill.ability}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <AttacksCard data={data} set={set} roll={roll} casters={casters} />
-              <LimitedFeaturesCard data={data} set={set} />
-            </div>
-
-            <div className="grid content-start gap-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base font-medium">
-                    Combat
-                    <Zh text="Combat" />
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="grid gap-3 text-sm">
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="grid gap-1">
-                      <Label htmlFor="ac">Armor class</Label>
-                      <Input
-                        id="ac" type="number" value={acShown}
-                        onChange={(e) => set({ acManual: e.target.value })}
-                      />
-                    </div>
-                    <div className="grid gap-1">
-                      <Label>Initiative</Label>
-                      <Button
-                        variant="outline"
-                        onClick={() => roll("Initiative", String(mod(scores.dex)))}
-                      >
-                        {fmt(mod(scores.dex))}
-                      </Button>
-                    </div>
-                    <div className="grid gap-1">
-                      <Label htmlFor="speed">Speed</Label>
-                      <Input
-                        id="speed" type="number" value={n(data.speedBase) || 30}
-                        onChange={(e) => set({ speedBase: parseInt(e.target.value || "0", 10) })}
-                      />
-                    </div>
-                  </div>
-                  <Separator />
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="grid gap-1">
-                      <Label htmlFor="hpcur">Current HP</Label>
-                      <Input id="hpcur" type="number" value={s(data.hpcur)} onChange={(e) => set({ hpcur: e.target.value })} />
-                    </div>
-                    <div className="grid gap-1">
-                      <Label htmlFor="hpmax">Max HP</Label>
-                      <Input id="hpmax" type="number" value={s(data.hpmax)} onChange={(e) => set({ hpmax: e.target.value })} />
-                    </div>
-                    <div className="grid gap-1">
-                      <Label htmlFor="hptmp">Temp HP</Label>
-                      <Input id="hptmp" type="number" value={s(data.hptmp)} onChange={(e) => set({ hptmp: e.target.value })} />
-                    </div>
-                  </div>
-                  <HpAdjust onDamage={applyDamage} onHeal={applyHeal} />
-                  <Separator />
-                  <div className="flex items-center justify-between">
-                    <span>
-                      Hit dice: {s(data.hitdice) || "—"} ({n(data["hd-total"]) - n(data["hd-used"])} left)
-                    </span>
-                  </div>
-                  <div className="grid gap-1">
-                    <span>Death saves</span>
-                    <div className="flex items-center gap-4">
-                      <span className="flex items-center gap-1">
-                        Success
-                        {[0, 1, 2].map((i) => (
-                          <Checkbox
-                            key={i}
-                            checked={Boolean(data[`dss-${i}`])}
-                            onCheckedChange={(c) => set({ [`dss-${i}`]: Boolean(c) })}
-                            aria-label={`Death save success ${i + 1}`}
-                          />
-                        ))}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        Failure
-                        {[0, 1, 2].map((i) => (
-                          <Checkbox
-                            key={i}
-                            checked={Boolean(data[`dsf-${i}`])}
-                            onCheckedChange={(c) => set({ [`dsf-${i}`]: Boolean(c) })}
-                            aria-label={`Death save failure ${i + 1}`}
-                          />
-                        ))}
-                      </span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <SlotPips slots={slots} data={data} onToggle={toggleSlot} />
-              <RollLog log={log} />
-            </div>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="spells" className="mt-4">
-          <SpellsTab
-            data={data}
-            set={set}
-            slots={slots}
-            casters={casters}
-            details={details}
-            setDetails={setDetails}
-            onToggleSlot={toggleSlot}
-            roll={roll}
-          />
-        </TabsContent>
-
-        <TabsContent value="inventory" className="mt-4">
-          <InventoryTab data={data} set={set} />
-        </TabsContent>
-
-        <TabsContent value="features" className="mt-4">
-          <FeaturesTab data={data} set={set} />
-        </TabsContent>
-
-        <TabsContent value="story" className="mt-4">
-          <StoryTab data={data} set={set} />
-        </TabsContent>
-
-        <TabsContent value="notes" className="mt-4">
-          <Card>
-            <CardContent className="pt-4">
-              <Textarea
-                value={s(data.notes)}
-                onChange={(e) => set({ notes: e.target.value })}
-                rows={16}
-                placeholder="Session notes, plans, reminders…"
-                aria-label="Notes"
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {/* 3D dice overlay — dice-box draws its canvas in here */}
-      <div
-        id="dice-box"
-        aria-hidden
-        className="pointer-events-none fixed inset-0 z-50 [&>canvas]:h-full [&>canvas]:w-full"
-      />
-
-      <div className="fixed top-1/2 right-1.5 z-40 hidden -translate-y-1/2 flex-col gap-1.5 lg:flex">
-        {[4, 6, 8, 10, 12, 20, 100].map((f) => (
+  const conditionToggles = (
+    <div className="flex flex-wrap gap-1.5">
+      {CONDITIONS.map((c) => {
+        const active = conditions.includes(c);
+        return (
           <Button
-            key={f}
+            key={c}
             size="sm"
-            variant="outline"
-            className="h-9 w-11 bg-background px-0 text-xs"
-            onClick={() => roll(`d${f}`, `1d${f}`)}
-            aria-label={`Roll 1d${f}`}
+            variant={active ? "default" : "outline"}
+            onClick={() =>
+              set({ conditions: active ? conditions.filter((x) => x !== c) : [...conditions, c] })
+            }
           >
-            d{f}
+            {c}
+            {zhOf(c) ? <span className="ml-1 text-[0.8em] opacity-80">{zhOf(c)}</span> : null}
           </Button>
-        ))}
+        );
+      })}
+    </div>
+  );
+
+  const activeConditions = conditions.length ? (
+    <div className="flex flex-wrap gap-1">
+      {conditions.map((c) => (
+        <Badge key={c} variant="secondary">
+          {c}
+          {zhOf(c) ? <span className="ml-1 opacity-70">{zhOf(c)}</span> : null}
+        </Badge>
+      ))}
+    </div>
+  ) : (
+    <span className="text-sm text-muted-foreground">None</span>
+  );
+
+  // Section bodies shared by the desktop tabs and the phone section menu.
+  const sections = {
+    actions: (
+      <div className="grid gap-4">
+        <AttacksCard data={data} set={set} roll={roll} casters={casters} />
+        <LimitedFeaturesCard data={data} set={set} />
+        <div className="grid gap-4 lg:grid-cols-2">
+          <SlotPips slots={slots} data={data} onToggle={toggleSlot} />
+          <RollLog log={log} />
+        </div>
       </div>
+    ),
+    spells: (
+      <SpellsTab
+        data={data}
+        set={set}
+        slots={slots}
+        casters={casters}
+        details={details}
+        setDetails={setDetails}
+        onToggleSlot={toggleSlot}
+        roll={roll}
+      />
+    ),
+    inventory: <InventoryTab data={data} set={set} />,
+    features: <FeaturesTab data={data} set={set} />,
+    story: <StoryTab data={data} set={set} />,
+    notes: (
+      <Textarea
+        value={s(data.notes)}
+        onChange={(e) => set({ notes: e.target.value })}
+        rows={16}
+        placeholder="Session notes, plans, reminders…"
+        aria-label="Notes"
+      />
+    ),
+  };
+
+  const overlays = (
+    <>
+      {/* 3D dice overlay — dice-box draws its canvas in here; above dialogs (z-50) */}
+      <div id="dice-box" aria-hidden className="pointer-events-none fixed inset-0 z-[100]" />
+
+      <DiceRail
+        custom={(data.customDice as string[] | undefined) ?? []}
+        onCustomChange={(customDice) => set({ customDice })}
+        roll={roll}
+      />
 
       {log.length > 0 && (
         <button
@@ -596,19 +602,12 @@ export default function SheetClient({
           className="fixed top-1/2 left-1/2 z-50 flex -translate-x-1/2 -translate-y-1/2 items-center gap-3 rounded-full border bg-background px-4 py-2 shadow-lg lg:top-16 lg:right-4 lg:left-auto lg:translate-x-0 lg:translate-y-0"
           aria-label="Latest roll — open dice roller"
         >
-          <span
-            key={log[0].at}
-            className="text-xl font-medium [animation:rollpop_.2s_ease-out]"
-          >
+          <span key={log[0].at} className="text-xl font-medium [animation:rollpop_.2s_ease-out]">
             {log[0].total}
           </span>
           <span className="max-w-56 truncate text-sm text-muted-foreground">
             {log[0].label} · {log[0].detail}
-            {log[0].nat === "crit"
-              ? " · critical!"
-              : log[0].nat === "fumble"
-                ? " · fumble"
-                : ""}
+            {log[0].nat === "crit" ? " · critical!" : log[0].nat === "fumble" ? " · fumble" : ""}
           </span>
         </button>
       )}
@@ -629,42 +628,379 @@ export default function SheetClient({
         set={set}
         roll={roll}
       />
+    </>
+  );
+
+  // ── Phone: compact header + one section at a time ───────────────────
+  if (isMobile) {
+    const MOBILE_SECTIONS: { key: MobileSection; label: string; icon: typeof SparklesIcon; wide?: boolean }[] = [
+      { key: "abilities", label: "Abilities, Saves, Senses", icon: DumbbellIcon, wide: true },
+      { key: "skills", label: "Skills", icon: SparklesIcon },
+      { key: "actions", label: "Actions", icon: SwordsIcon },
+      { key: "inventory", label: "Inventory", icon: BackpackIcon },
+      { key: "spells", label: "Spells", icon: WandSparklesIcon },
+      { key: "features", label: "Features & Traits", icon: ScrollTextIcon },
+      { key: "proficiencies", label: "Proficiencies", icon: BadgeCheckIcon },
+      { key: "story", label: "Background", icon: BookOpenIcon },
+      { key: "notes", label: "Notes", icon: NotebookPenIcon },
+    ];
+    const current = MOBILE_SECTIONS.find((x) => x.key === mobileSection)!;
+    const go = (key: MobileSection) => {
+      setMobileSection(key);
+      setMenuOpen(false);
+      window.scrollTo({ top: 0 });
+    };
+
+    return (
+      <main className="min-h-svh bg-muted/50 pb-24">
+        <header className="sticky top-0 z-40 bg-zinc-900 text-zinc-50 shadow-md">
+          <div className="flex items-center gap-3 px-3 py-2">
+            <Portrait
+              src={s(data.portrait)}
+              name={s(data.charname)}
+              onChange={(portrait) => set({ portrait })}
+              className="size-12"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-lg leading-tight font-medium">{s(data.charname) || "Unnamed"}</p>
+              <p className="truncate text-xs text-zinc-400">
+                {[s(data.race), s(data.classlevel)].filter(Boolean).join(" · ")}
+              </p>
+              <p className="text-xs text-zinc-400">Level {level}</p>
+            </div>
+            <Popover>
+              <PopoverTrigger className="rounded-lg border border-white/20 bg-white/5 px-3 py-1 text-center">
+                <span className="block text-[0.6rem] font-semibold tracking-wider uppercase">
+                  Hit points <span className="font-normal text-zinc-400">{zhOf("Hit Points")}</span>
+                </span>
+                <span className="text-xl font-medium">
+                  {s(data.hpcur) || "—"} / {s(data.hpmax) || "—"}
+                </span>
+                {hptmp ? <span className="ml-1 text-xs text-zinc-400">+{hptmp}</span> : null}
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-80 p-2">
+                {hpBox("border-none p-0 shadow-none")}
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Quick stats */}
+          <div className="grid grid-cols-[repeat(4,minmax(0,1fr))_auto] items-center gap-1 border-t border-white/10 px-2 py-1.5 text-center">
+            <div>
+              <span className="block text-[0.6rem] font-semibold uppercase text-zinc-400">Prof</span>
+              <span className="text-xl font-medium">{fmt(pb)}</span>
+            </div>
+            <div>
+              <span className="block text-[0.6rem] font-semibold uppercase text-zinc-400">Speed</span>
+              <span className="text-xl font-medium">{n(data.speedBase) || 30}</span>
+              <span className="text-xs text-zinc-400"> ft.</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => roll("Initiative", String(mod(scores.dex)))}
+              aria-label="Roll initiative"
+            >
+              <span className="block text-[0.6rem] font-semibold uppercase text-zinc-400">Initiative</span>
+              <span className="rounded border border-white/25 px-1.5 text-xl font-medium">{fmt(mod(scores.dex))}</span>
+            </button>
+            <div>
+              <span className="block text-[0.6rem] font-semibold uppercase text-zinc-400">Armor</span>
+              <span className="text-xl font-medium">{acShown}</span>
+            </div>
+            <div className="grid gap-1">
+              <Popover>
+                <PopoverTrigger className="rounded border border-white/20 px-2 py-0.5 text-[0.6rem] font-semibold uppercase">
+                  Defenses
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-72">
+                  <p className="mb-1 text-xs font-semibold uppercase">
+                    Defenses <span className="font-normal normal-case text-muted-foreground">{zhOf("Defenses")}</span>
+                  </p>
+                  {defensesField}
+                </PopoverContent>
+              </Popover>
+              <Popover>
+                <PopoverTrigger
+                  className={cn(
+                    "rounded border px-2 py-0.5 text-[0.6rem] font-semibold uppercase",
+                    conditions.length ? "border-amber-400 text-amber-300" : "border-white/20",
+                  )}
+                >
+                  Conditions{conditions.length ? ` (${conditions.length})` : ""}
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-80">{conditionToggles}</PopoverContent>
+              </Popover>
+            </div>
+          </div>
+        </header>
+
+        <div className="px-3 pt-3">
+          <h1 className="mb-3 text-center text-sm font-semibold tracking-wider uppercase">
+            {current.label}
+            {zhOf(current.label) && (
+              <span className="ml-1.5 font-normal tracking-normal text-muted-foreground normal-case">
+                {zhOf(current.label)}
+              </span>
+            )}
+          </h1>
+
+          {mobileSection === "abilities" && (
+            <div className="grid gap-3">
+              <div className="grid grid-cols-3 gap-2">{abilityBoxes}</div>
+              <div className="grid grid-cols-2 gap-2">
+                {inspirationButton()}
+                <StatBox top="Walking" bottom="Speed">
+                  {speedInput}
+                  <span className="text-xs text-muted-foreground">ft.</span>
+                </StatBox>
+              </div>
+              {savesPanel}
+              {sensesPanel}
+              {hitDicePanel}
+            </div>
+          )}
+          {mobileSection === "skills" && skillsPanel}
+          {mobileSection === "proficiencies" && proficienciesPanel}
+          {mobileSection === "actions" && sections.actions}
+          {mobileSection === "spells" && sections.spells}
+          {mobileSection === "inventory" && sections.inventory}
+          {mobileSection === "features" && sections.features}
+          {mobileSection === "story" && sections.story}
+          {mobileSection === "notes" && sections.notes}
+        </div>
+
+        {/* Section menu */}
+        <button
+          type="button"
+          onClick={() => setMenuOpen((o) => !o)}
+          aria-label={menuOpen ? "Close sections menu" : "Open sections menu"}
+          aria-expanded={menuOpen}
+          className="fixed right-4 bottom-4 z-50 flex size-14 items-center justify-center rounded-full bg-zinc-900 text-white shadow-lg ring-2 ring-white/20"
+        >
+          {menuOpen ? <XIcon className="size-6" /> : <LayoutGridIcon className="size-6" />}
+        </button>
+        {menuOpen && (
+          <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setMenuOpen(false)}>
+            <nav
+              className="absolute inset-x-3 bottom-22 grid grid-cols-2 gap-2"
+              onClick={(e) => e.stopPropagation()}
+              aria-label="Sheet sections"
+            >
+              {MOBILE_SECTIONS.map(({ key, label, icon: Icon, wide }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => go(key)}
+                  className={cn(
+                    "flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-zinc-900 px-2 py-3 text-xs font-semibold tracking-wide text-white uppercase shadow-lg",
+                    wide && "col-span-2",
+                    key === mobileSection && "ring-2 ring-white/70",
+                  )}
+                >
+                  <Icon className="size-4 shrink-0" />
+                  <span className="text-left">
+                    {label}
+                    {zhOf(label) && <span className="block font-normal tracking-normal text-zinc-400 normal-case">{zhOf(label)}</span>}
+                  </span>
+                </button>
+              ))}
+              <div className="col-span-2 mt-1 grid grid-cols-3 gap-2">
+                {(
+                  [
+                    ["Short Rest", () => setShortRestOpen(true)],
+                    ["Long Rest", longRest],
+                    ["Dice", () => setDiceOpen(true)],
+                    ["Level Up", () => setLevelUpOpen(true)],
+                    ["Print", () => window.print()],
+                  ] as const
+                ).map(([label, action]) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      action();
+                    }}
+                    className="rounded-lg bg-white px-2 py-2 text-xs font-medium text-zinc-900 shadow-lg"
+                  >
+                    {label} <span className="text-zinc-500">{zhOf(label)}</span>
+                  </button>
+                ))}
+                <Link href="/" className="rounded-lg bg-white px-2 py-2 text-center text-xs font-medium text-zinc-900 shadow-lg">
+                  Library
+                </Link>
+              </div>
+            </nav>
+          </div>
+        )}
+
+        {overlays}
+      </main>
+    );
+  }
+
+  // ── Tablet / desktop: dashboard ─────────────────────────────────────
+  return (
+    <main className="min-h-svh bg-muted/50 pb-12">
+      <header className="bg-zinc-900 text-zinc-50">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-3 lg:pr-16">
+          <Portrait
+            src={s(data.portrait)}
+            name={s(data.charname)}
+            onChange={(portrait) => set({ portrait })}
+          />
+          <div className="min-w-56 flex-1">
+            <Input
+              value={s(data.charname)}
+              onChange={(e) => set({ charname: e.target.value })}
+              className="h-auto border-none bg-transparent px-0 text-2xl font-medium text-white shadow-none focus-visible:ring-0 dark:bg-transparent"
+              aria-label="Character name"
+            />
+            <p className="text-sm text-zinc-300">
+              {[s(data.race), s(data.classlevel)].filter(Boolean).join(" · ")}
+            </p>
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400">
+              <span>Level {level}</span>
+              <span className="flex items-center gap-1.5">
+                XP
+                <input
+                  type="number"
+                  value={s(data.xp)}
+                  onChange={(e) => set({ xp: e.target.value })}
+                  aria-label="Experience points"
+                  className="w-20 rounded border border-white/20 bg-white/5 px-1.5 py-0.5 text-zinc-100"
+                />
+                {nextThreshold != null && (
+                  <span>
+                    / {nextThreshold.toLocaleString()}
+                    {xp >= nextThreshold ? " — ready to level up" : ""}
+                  </span>
+                )}
+              </span>
+              <span>
+                {saveState === "saved" ? "Saved" : saveState === "saving" ? "Saving…" : "Unsaved changes"}
+              </span>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/" className={cn(buttonVariants({ variant: "outline" }), darkBtn)}>
+              Library
+            </Link>
+            <Button variant="outline" className={darkBtn} onClick={() => setShortRestOpen(true)}>
+              Short rest
+              <Zh text="Short Rest" />
+            </Button>
+            <Button variant="outline" className={darkBtn} onClick={longRest}>
+              Long rest
+              <Zh text="Long Rest" />
+            </Button>
+            <Button variant="outline" className={darkBtn} onClick={() => setDiceOpen(true)}>
+              Dice
+              <Zh text="Dice" />
+            </Button>
+            <Button variant="outline" className={darkBtn} onClick={() => window.print()}>
+              Print
+            </Button>
+            <Button className="bg-white text-zinc-900 hover:bg-zinc-200" onClick={() => setLevelUpOpen(true)}>
+              Level up
+              <Zh text="Level Up" />
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-7xl px-4 lg:pr-16">
+        {/* Stat strip */}
+        <section className="grid grid-cols-6 gap-2 py-4 xl:grid-cols-[repeat(6,minmax(0,1fr))_repeat(3,minmax(0,0.9fr))_minmax(310px,3fr)]">
+          {abilityBoxes}
+          <StatBox top="Proficiency" bottom="Bonus" className="col-span-2 xl:col-span-1">
+            <span className="text-2xl font-medium">{fmt(pb)}</span>
+          </StatBox>
+          <StatBox top="Walking" bottom="Speed" className="col-span-2 xl:col-span-1">
+            {speedInput}
+            <span className="text-xs text-muted-foreground">ft.</span>
+          </StatBox>
+          {inspirationButton("col-span-2 xl:col-span-1")}
+          {hpBox("col-span-6 xl:col-span-1")}
+        </section>
+
+        {/* Three columns */}
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,250px)_minmax(0,290px)_minmax(0,1fr)]">
+          <div className="grid content-start gap-4">
+            {savesPanel}
+            {sensesPanel}
+            {hitDicePanel}
+            {proficienciesPanel}
+          </div>
+
+          {skillsPanel}
+
+          <div className="grid min-w-0 content-start gap-4 md:col-span-2 xl:col-span-1">
+            <div className="grid grid-cols-[auto_auto_minmax(0,1fr)_minmax(0,1fr)] gap-3">
+              <StatBox top="Initiative" className="px-4">
+                <BonusButton
+                  value={mod(scores.dex)}
+                  onClick={() => roll("Initiative", String(mod(scores.dex)))}
+                  label="Roll initiative"
+                  className="border-2 px-3 text-2xl"
+                />
+              </StatBox>
+              <StatBox top="Armor" bottom="Class" className="rounded-b-[2rem] px-4">
+                {acInput}
+              </StatBox>
+              <div className="grid gap-1 rounded-xl border-2 bg-card p-2 shadow-xs">
+                <span className="text-xs font-semibold uppercase">
+                  Defenses <span className="font-normal normal-case text-muted-foreground">{zhOf("Defenses")}</span>
+                </span>
+                {defensesField}
+              </div>
+              <div className="grid content-start gap-1 rounded-xl border-2 bg-card p-2 shadow-xs">
+                <span className="flex items-center justify-between text-xs font-semibold uppercase">
+                  <span>
+                    Conditions <span className="font-normal normal-case text-muted-foreground">{zhOf("Conditions")}</span>
+                  </span>
+                  <Popover>
+                    <PopoverTrigger
+                      className={cn(buttonVariants({ size: "sm", variant: "ghost" }), "h-6 px-1.5 text-xs normal-case")}
+                    >
+                      Manage
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-72">{conditionToggles}</PopoverContent>
+                  </Popover>
+                </span>
+                {activeConditions}
+              </div>
+            </div>
+
+            <section className="min-w-0 rounded-xl border-2 bg-card p-3 shadow-xs">
+              <Tabs defaultValue="actions">
+                <TabsList className="flex h-auto w-full flex-wrap justify-start [&>*]:flex-none">
+                  <TabsTrigger value="actions">Actions<Zh text="Actions" /></TabsTrigger>
+                  <TabsTrigger value="spells">Spells<Zh text="Spells" /></TabsTrigger>
+                  <TabsTrigger value="inventory">Inventory<Zh text="Inventory" /></TabsTrigger>
+                  <TabsTrigger value="features">Features &amp; Traits<Zh text="Features & Traits" /></TabsTrigger>
+                  <TabsTrigger value="story">Background<Zh text="Background" /></TabsTrigger>
+                  <TabsTrigger value="notes">Notes<Zh text="Notes" /></TabsTrigger>
+                </TabsList>
+                {(Object.keys(sections) as (keyof typeof sections)[]).map((key) => (
+                  <TabsContent key={key} value={key} className="mt-4">
+                    {sections[key]}
+                  </TabsContent>
+                ))}
+              </Tabs>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      {overlays}
     </main>
   );
 }
 
+
 type SetFn = (patch: Partial<CharData>) => void;
 type RollFn = (label: string, expr: string) => void;
-
-function HpAdjust({
-  onDamage,
-  onHeal,
-}: {
-  onDamage: (n: number) => void;
-  onHeal: (n: number) => void;
-}) {
-  const [amount, setAmount] = useState("");
-  const value = parseInt(amount || "0", 10) || 0;
-  return (
-    <div className="flex items-center gap-2">
-      <Input
-        type="number"
-        value={amount}
-        onChange={(e) => setAmount(e.target.value)}
-        placeholder="Amount"
-        className="w-24"
-        aria-label="Hit point amount"
-      />
-      <Button size="sm" variant="outline" onClick={() => value && onDamage(value)}>
-        Damage
-      </Button>
-      <Button size="sm" variant="outline" onClick={() => value && onHeal(value)}>
-        Heal
-        <Zh text="Heal" />
-      </Button>
-    </div>
-  );
-}
 
 export function SlotPips({
   slots,
@@ -1168,6 +1504,34 @@ function InventoryTab({ data, set }: { data: CharData; set: SetFn }) {
   );
 }
 
+// Traditional Chinese companion to a free-text field. It is a separate,
+// editable translation: editing the English does not update it.
+function ZhField({
+  value,
+  onChange,
+  rows,
+  label,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  rows: number;
+  label: string;
+}) {
+  return (
+    <div className="mt-3 grid gap-1.5">
+      <Label className="text-xs text-muted-foreground">繁體中文</Label>
+      <Textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={rows}
+        aria-label={label}
+        placeholder="中文翻譯"
+        className="text-muted-foreground"
+      />
+    </div>
+  );
+}
+
 function FeaturesTab({ data, set }: { data: CharData; set: SetFn }) {
   return (
     <div className="grid gap-4">
@@ -1185,6 +1549,12 @@ function FeaturesTab({ data, set }: { data: CharData; set: SetFn }) {
             rows={18}
             aria-label="Features and traits"
           />
+          <ZhField
+            value={s(data["features-zh"])}
+            onChange={(v) => set({ "features-zh": v })}
+            rows={14}
+            label="Features and traits (Traditional Chinese)"
+          />
         </CardContent>
       </Card>
       <Card>
@@ -1200,6 +1570,12 @@ function FeaturesTab({ data, set }: { data: CharData; set: SetFn }) {
             onChange={(e) => set({ proficiencies: e.target.value })}
             rows={5}
             aria-label="Proficiencies and languages"
+          />
+          <ZhField
+            value={s(data["proficiencies-zh"])}
+            onChange={(v) => set({ "proficiencies-zh": v })}
+            rows={4}
+            label="Proficiencies and languages (Traditional Chinese)"
           />
         </CardContent>
       </Card>

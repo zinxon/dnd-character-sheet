@@ -28,7 +28,15 @@ function getBox(): Promise<DiceBoxType | null> {
           spinForce: 5,
           settleTimeout: 4000,
         });
+        // Size the canvas inline (not via the page's CSS, which may not be
+        // applied yet) and re-measure once ready, so the 3D world matches the
+        // viewport instead of the default 300×150 canvas stretched to fit.
+        const canvas = document.querySelector<HTMLCanvasElement>(`#${CONTAINER_ID} > canvas`);
+        if (canvas) Object.assign(canvas.style, { width: "100%", height: "100%", display: "block" });
         await box.init();
+        // Only with a real canvas: without WebGL dice-box has none and its
+        // resize handler would throw.
+        if (canvas) window.dispatchEvent(new Event("resize"));
         return box;
       })
       .catch((err) => {
