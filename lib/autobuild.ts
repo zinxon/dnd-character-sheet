@@ -17,7 +17,15 @@ import traitsJson from "@/data/en/5e-SRD-Traits.json";
 import featuresZhJson from "@/data/features-zh.json";
 import zhJson from "@/data/zh.json";
 import { SPELL_DB } from "@/lib/spells";
-import { classCore, mod, type Ability, type CharData, type ClassLevel } from "@/lib/sheet";
+import {
+  casterKind,
+  classCore,
+  mod,
+  slotsForClasses,
+  type Ability,
+  type CharData,
+  type ClassLevel,
+} from "@/lib/sheet";
 
 type Ref = { name: string; index?: string };
 type Feature = {
@@ -337,7 +345,18 @@ export function buildCharacter({ classes, race, scores }: BuildInput): Partial<C
         }
       };
       take(ordered((l) => l === 0, picks.cantrips), sc.cantrips_known ?? 0);
-      if (maxLevel > 0) take(ordered((l) => l >= 1 && l <= maxLevel, picks.spells), sc.prepared_spells ?? 0);
+      // Leveled spells: take turns across spell levels, highest first, so a
+      // 5th-level Wizard gets 3rd-level spells instead of nine 1st/2nd ones.
+      if (maxLevel > 0) {
+        const queues = Array.from({ length: maxLevel }, (_, i) =>
+          ordered((l) => l === maxLevel - i, picks.spells).filter((n) => !spells.has(n)),
+        );
+        const order: string[] = [];
+        while (queues.some((q) => q.length)) {
+          for (const q of queues) if (q.length) order.push(q.shift()!);
+        }
+        take(order, sc.prepared_spells ?? 0);
+      }
 
       // Damage cantrips become attack rows.
       const atk = prof + m(core.spellAbility);
@@ -423,4 +442,29 @@ export function buildCharacter({ classes, race, scores }: BuildInput): Partial<C
   patch.spellEntries = entries;
 
   return patch;
+}
+
+// Spells each class (and subclass) can learn at its level, for the Add spell
+// picker: name → label like "Wizard" or "Life Domain (always prepared)".
+// Eldritch Knights and Arcane Tricksters learn from the Wizard list.
+export function learnableSpells(classes: ClassLevel[]): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const c of classes) {
+    if (casterKind(c) === "none") continue;
+    // Subclass spells first: always prepared.
+    for (const f of FEATURES) {
+      if (f.class.name !== c.name || f.subclass?.name !== c.subclass || !/Spells$/.test(f.name)) continue;
+      for (const name of subclassSpells(f, c.level)) {
+        if (!out.has(name)) out.set(name, `${c.subclass} (always prepared)`);
+      }
+    }
+    const slots = slotsForClasses([c]);
+    const maxLevel = slots.reduce((m, n, i) => (n > 0 ? i + 1 : m), 0);
+    const listClass = casterKind(c) === "third" ? "Wizard" : c.name;
+    for (const s of SRD_SPELLS) {
+      if (!SPELL_DB[s.name] || s.level > maxLevel || out.has(s.name)) continue;
+      if (s.classes.some((k) => k.name === listClass)) out.set(s.name, c.name);
+    }
+  }
+  return out;
 }

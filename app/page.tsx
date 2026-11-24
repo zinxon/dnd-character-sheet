@@ -540,7 +540,7 @@ function CharacterDialog({
             <div className="grid gap-2">
               <Label>Alignment<Zh text="Alignment" /></Label>
               <Select value={alignment} onValueChange={(v) => setAlignment(v ?? "")}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Choose" />
                 </SelectTrigger>
                 <SelectContent>

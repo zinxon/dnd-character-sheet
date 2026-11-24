@@ -1469,6 +1469,8 @@ function SpellsTab({
       <AddSpellDialog
         open={addOpen}
         onOpenChange={setAddOpen}
+        classes={parseClasses(data)}
+        known={new Set(Object.values(entries).flat().map((e) => e.name))}
         onAdd={(spell) => {
           const key = String(spell.level);
           const list = entries[key] ?? [];
@@ -1485,25 +1487,36 @@ function SpellsTab({
   );
 }
 
+type SpellHit = SpellDetail & { group: string | null };
+
+// Spell search: spells this character's classes and subclasses can learn
+// come first, in labelled groups, then every other spell.
 function AddSpellDialog({
   open,
   onOpenChange,
   onAdd,
+  classes,
+  known,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   onAdd: (spell: SpellDetail) => void;
+  classes: ReturnType<typeof parseClasses>;
+  known: Set<string>;
 }) {
   const [q, setQ] = useState("");
-  const [results, setResults] = useState<SpellDetail[]>([]);
+  const [results, setResults] = useState<SpellHit[]>([]);
+  const classKey = JSON.stringify(classes);
   useEffect(() => {
     if (!open) return;
     const t = setTimeout(async () => {
-      const res = await fetch(`/api/spells?q=${encodeURIComponent(q)}`);
+      const res = await fetch(
+        `/api/spells?q=${encodeURIComponent(q)}&classes=${encodeURIComponent(classKey)}`,
+      );
       setResults(await res.json());
     }, 200);
     return () => clearTimeout(t);
-  }, [q, open]);
+  }, [q, open, classKey]);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
@@ -1518,11 +1531,22 @@ function AddSpellDialog({
         />
         <ScrollArea className="h-72">
           <div className="grid gap-1">
-            {results.map((spell) => (
+            {results.map((spell, i) => (
+              <Fragment key={spell.name}>
+              {(i === 0 || results[i - 1].group !== spell.group) && (
+                <p className="sticky top-0 z-10 bg-popover pt-2 pb-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                  {spell.group ? `${spell.group} spells` : "Other spells"}
+                  {spell.group && zhOf(spell.group.replace(/ \(always prepared\)$/, "")) && (
+                    <span className="ml-1.5 font-normal normal-case">
+                      {zhOf(spell.group.replace(/ \(always prepared\)$/, ""))}
+                    </span>
+                  )}
+                </p>
+              )}
               <button
-                key={spell.name}
                 type="button"
-                className="flex items-center gap-2 rounded-md border p-2 text-left text-sm"
+                disabled={known.has(spell.name)}
+                className="flex items-center gap-2 rounded-md border p-2 text-left text-sm hover:bg-muted disabled:opacity-50"
                 onClick={() => {
                   onAdd(spell);
                   onOpenChange(false);
@@ -1536,10 +1560,12 @@ function AddSpellDialog({
                     </span>
                   ) : null}
                 </span>
-                <span className="ml-auto text-muted-foreground">
+                <span className="ml-auto text-right text-muted-foreground">
+                  {known.has(spell.name) ? "Added · " : ""}
                   {spell.level === 0 ? "Cantrip" : `Level ${spell.level}`} · {spell.school}
                 </span>
               </button>
+              </Fragment>
             ))}
           </div>
         </ScrollArea>

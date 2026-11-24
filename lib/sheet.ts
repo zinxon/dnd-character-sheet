@@ -193,18 +193,34 @@ export function passivePerception(data: CharData): number {
   return 10 + skillBonus(data, "perception");
 }
 
-// Effective multiclass caster level for the shared slot pool.
-export function casterLevel(data: CharData): number {
+// Fighters and Rogues only cast with these subclasses.
+const THIRD_CASTER_SUBCLASSES = ["Eldritch Knight", "Arcane Trickster"];
+
+// How a class (with its subclass) casts spells.
+export function casterKind(c: ClassLevel): CasterType {
+  const core = classCore(c.name);
+  if (!core) return "none";
+  if (core.caster === "third") {
+    return THIRD_CASTER_SUBCLASSES.includes(c.subclass) ? "third" : "none";
+  }
+  return core.caster;
+}
+
+// Effective caster level for the shared slot pool (2024 rules): full casters
+// count all levels, Paladin/Ranger/Artificer half rounded up, Eldritch
+// Knight/Arcane Trickster a third rounded down. Pact Magic is separate.
+export function sharedCasterLevel(classes: ClassLevel[]): number {
   let level = 0;
-  for (const c of parseClasses(data)) {
-    const core = classCore(c.name);
-    if (!core) continue;
-    if (core.caster === "full") level += c.level;
-    else if (core.caster === "half") level += Math.floor(c.level / 2);
-    else if (core.caster === "third") level += Math.floor(c.level / 3);
+  for (const c of classes) {
+    const kind = casterKind(c);
+    if (kind === "full") level += c.level;
+    else if (kind === "half") level += Math.ceil(c.level / 2);
+    else if (kind === "third") level += Math.floor(c.level / 3);
   }
   return level;
 }
+
+export const casterLevel = (data: CharData) => sharedCasterLevel(parseClasses(data));
 
 // Slot totals: the record's own slot1..slot9 win when present (the classic
 // sheet stores them); otherwise computed from the class build.
@@ -340,40 +356,34 @@ export function rollDice(exprRaw: string, landed?: number[]): RollResult {
   };
 }
 
-// Slot totals for a class build: a single class uses its own table
-// (half casters round up, pact magic is separate); multiclass uses the
-// shared pool from the combined caster level.
+// Slot totals for a class build. A single class uses its own table (a
+// third caster rounds up there: Eldritch Knight 3 has two 1st-level slots);
+// multiclass uses the shared pool. Warlock Pact Magic slots are added on
+// top at their slot level, since the sheet keeps one row per spell level.
 export function slotsForClasses(classes: ClassLevel[]): number[] {
-  if (classes.length === 1) {
-    const core = classCore(classes[0].name);
-    if (!core || core.caster === "none") return Array(9).fill(0);
-    if (core.caster === "pact") {
-      const [count, slotLevel] = PACT_SLOTS[Math.min(classes[0].level, 20) - 1];
-      const out = Array(9).fill(0);
-      out[slotLevel - 1] = count;
-      return out;
-    }
-    const effective =
-      core.caster === "full"
-        ? classes[0].level
-        : core.caster === "half"
-          ? Math.ceil(classes[0].level / 2)
-          : Math.floor(classes[0].level / 3);
-    if (effective <= 0) return Array(9).fill(0);
+  const out = Array(9).fill(0) as number[];
+  const casters = classes.filter((c) => casterKind(c) !== "none");
+  const shared = casters.filter((c) => casterKind(c) !== "pact");
+  let effective = 0;
+  if (shared.length === 1 && casters.length === 1) {
+    const c = shared[0];
+    const kind = casterKind(c);
+    effective = kind === "full" ? c.level : kind === "half" ? Math.ceil(c.level / 2) : Math.ceil(c.level / 3);
+    // Eldritch Knight / Arcane Trickster get no spells before level 3.
+    if (kind === "third" && c.level < 3) effective = 0;
+  } else {
+    effective = sharedCasterLevel(shared);
+  }
+  if (effective > 0) {
     const row = FULL_SLOTS[Math.min(effective, 20) - 1] ?? [];
-    return Array.from({ length: 9 }, (_, i) => row[i] ?? 0);
+    row.forEach((n, i) => (out[i] += n));
   }
-  let level = 0;
-  for (const c of classes) {
-    const core = classCore(c.name);
-    if (!core) continue;
-    if (core.caster === "full") level += c.level;
-    else if (core.caster === "half") level += Math.floor(c.level / 2);
-    else if (core.caster === "third") level += Math.floor(c.level / 3);
+  const warlock = classes.find((c) => casterKind(c) === "pact");
+  if (warlock) {
+    const [count, slotLevel] = PACT_SLOTS[Math.min(warlock.level, 20) - 1];
+    out[slotLevel - 1] += count;
   }
-  if (level <= 0) return Array(9).fill(0);
-  const row = FULL_SLOTS[Math.min(level, 20) - 1] ?? [];
-  return Array.from({ length: 9 }, (_, i) => row[i] ?? 0);
+  return out;
 }
 
 // Max HP for a class build using fixed (average) hit points: the first
