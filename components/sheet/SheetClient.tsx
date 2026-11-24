@@ -33,6 +33,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Zh, zhOf } from "@/components/Zh";
 import { playSpellSound } from "@/lib/spellSound";
+import { Portrait } from "@/components/sheet/Portrait";
 import {
   ABILITIES,
   ABILITY_NAMES,
@@ -215,6 +216,11 @@ export default function SheetClient({
   return (
     <main className="mx-auto max-w-6xl p-4 sm:p-6">
       <header className="mb-4 flex flex-wrap items-start gap-3">
+        <Portrait
+          src={s(data.portrait)}
+          name={s(data.charname)}
+          onChange={(portrait) => set({ portrait })}
+        />
         <div className="min-w-56 flex-1">
           <Input
             value={s(data.charname)}

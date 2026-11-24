@@ -60,6 +60,7 @@ type Summary = {
   level: number;
   hpcur: unknown;
   hpmax: unknown;
+  portrait: string;
   updatedAt: string;
 };
 
@@ -180,11 +181,21 @@ export default function LibraryPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {characters.map((c) => (
             <Card key={c.id}>
-              <CardHeader>
-                <CardTitle className="font-medium">{c.name}</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  {c.classLevel || "No class yet"} · Level {c.level}
-                </p>
+              <CardHeader className="flex flex-row items-center gap-3">
+                {c.portrait && (
+                  // eslint-disable-next-line @next/next/no-img-element -- data URL
+                  <img
+                    src={c.portrait}
+                    alt=""
+                    className="size-12 shrink-0 rounded-md border object-cover"
+                  />
+                )}
+                <div className="min-w-0">
+                  <CardTitle className="font-medium">{c.name}</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {c.classLevel || "No class yet"} · Level {c.level}
+                  </p>
+                </div>
               </CardHeader>
               <CardContent>
                 <p className="text-sm">
