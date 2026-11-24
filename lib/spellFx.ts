@@ -5,12 +5,13 @@
 // Videos are drawn with `mix-blend-mode: screen`, so a pure-black background
 // disappears and only the bright effect shows — no alpha channel needed.
 
-export type BuiltInFx = "fireball";
+export type BuiltInFx = "fireball" | "shock";
 
 const BUILT_IN: Record<string, BuiltInFx> = {
   Fireball: "fireball",
   "Delayed Blast Fireball": "fireball",
   "Meteor Swarm": "fireball",
+  "Shocking Grasp": "shock",
 };
 
 // Spell → video file in public/vfx/. Add a line when you add a file.

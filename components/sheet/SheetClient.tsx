@@ -1347,10 +1347,12 @@ function SpellsTab({
     setEntries({ ...entries, [String(lvl)]: list });
   };
 
+  // Cantrips (level 0) just play their sound and effect; levelled spells
+  // also spend a slot.
   const cast = (lvl: number, spellName: string) => {
-    if (lvl === 0) return;
     playSpellSound(spellName);
     playSpellFx(spellName);
+    if (lvl === 0) return;
     const used = slotUsed(data, lvl);
     if (used < (slots[lvl - 1] ?? 0)) set({ [`slot${lvl}u`]: String(used + 1) });
   };
@@ -1410,12 +1412,10 @@ function SpellsTab({
                       </span>
                     )}
                     <span className="ml-auto flex gap-1.5">
-                      {lvl > 0 && (
-                        <Button size="sm" variant="outline" onClick={() => cast(lvl, entry.name)}>
-                          Cast
-                          <Zh text="Cast" />
-                        </Button>
-                      )}
+                      <Button size="sm" variant="outline" onClick={() => cast(lvl, entry.name)}>
+                        Cast
+                        <Zh text="Cast" />
+                      </Button>
                       <Button
                         size="sm"
                         variant="ghost"

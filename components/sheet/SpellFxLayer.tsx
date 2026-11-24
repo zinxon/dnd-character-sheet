@@ -65,6 +65,7 @@ export function SpellFxLayer() {
 
 function BuiltIn({ kind, reduced, onDone }: { kind: BuiltInFx; reduced: boolean; onDone: () => void }) {
   if (kind === "fireball") return <Fireball reduced={reduced} onDone={onDone} />;
+  if (kind === "shock") return <ShockingGrasp reduced={reduced} onDone={onDone} />;
   return null;
 }
 
@@ -210,5 +211,295 @@ function Fireball({ reduced, onDone }: { reduced: boolean; onDone: () => void })
         transition={{ duration: 0.35, ease: "easeOut" }}
       />
     </motion.div>
+  );
+}
+
+// ── Shocking Grasp ────────────────────────────────────────────────────
+// Lightning springs from the caster's hand into the creature they touch.
+// Charge at the hand → jagged bolt to the target → impact flash, shock
+// rings and sparks → static crackling on the target, then fade.
+
+const HAND = { x: 210, y: 400 };
+const TARGET = { x: 790, y: 230 };
+const ELECTRIC = { core: "#ffffff", hot: "#bae6fd", glow: "#38bdf8", deep: "#6366f1" };
+
+// Jagged polyline between two points; deterministic per seed.
+function boltPath(from: { x: number; y: number }, to: { x: number; y: number }, seed: number, segments = 12, jitter = 38) {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const len = Math.hypot(dx, dy);
+  const nx = -dy / len;
+  const ny = dx / len;
+  let d = `M ${from.x} ${from.y}`;
+  for (let i = 1; i < segments; i++) {
+    const t = i / segments;
+    const taper = Math.sin(Math.PI * t);
+    const off = (rand(i, seed) - 0.5) * 2 * jitter * taper;
+    d += ` L ${(from.x + dx * t + nx * off).toFixed(1)} ${(from.y + dy * t + ny * off).toFixed(1)}`;
+  }
+  return `${d} L ${to.x} ${to.y}`;
+}
+
+// A short arc crackling around a point.
+function arcAround(c: { x: number; y: number }, seed: number, r: number) {
+  const a = rand(seed, 31) * Math.PI * 2;
+  const from = { x: c.x + Math.cos(a) * r * 0.3, y: c.y + Math.sin(a) * r * 0.3 };
+  const to = { x: c.x + Math.cos(a + 0.9) * r, y: c.y + Math.sin(a + 0.9) * r };
+  return boltPath(from, to, seed + 7, 5, r * 0.25);
+}
+
+// Visible only in its own slice of the timeline → bolts that flicker
+// between shapes like real lightning.
+function flicker(start: number, slots: number[], total: number) {
+  const times = [0];
+  const opacity = [0];
+  for (const t of slots) {
+    times.push((start + t) / total, (start + t + 0.04) / total);
+    opacity.push(1, 0);
+  }
+  times.push(1);
+  opacity.push(0);
+  return { times, opacity };
+}
+
+// A lightning stroke with a glow made of layered strokes (a wide faint blue
+// halo under a thin bright core) — far cheaper than an SVG blur filter.
+function Bolt({
+  d,
+  width,
+  core = ELECTRIC.core,
+  ...motionProps
+}: { d: string; width: number; core?: string } & React.ComponentProps<typeof motion.g>) {
+  return (
+    <motion.g {...motionProps}>
+      <path d={d} fill="none" stroke={ELECTRIC.deep} strokeOpacity={0.35} strokeWidth={width * 5} strokeLinecap="round" strokeLinejoin="round" />
+      <path d={d} fill="none" stroke={ELECTRIC.glow} strokeOpacity={0.6} strokeWidth={width * 2.4} strokeLinecap="round" strokeLinejoin="round" />
+      <path d={d} fill="none" stroke={core} strokeWidth={width} strokeLinecap="round" strokeLinejoin="round" />
+    </motion.g>
+  );
+}
+
+function ShockingGrasp({ reduced, onDone }: { reduced: boolean; onDone: () => void }) {
+  const TOTAL = 1.4;
+  useEffect(() => {
+    const t = setTimeout(onDone, reduced ? 700 : TOTAL * 1000 + 100);
+    return () => clearTimeout(t);
+  }, [onDone, reduced]);
+
+  if (reduced) {
+    return (
+      <motion.div
+        className="absolute inset-0"
+        style={{ background: `radial-gradient(circle at 60% 45%, ${ELECTRIC.glow}55, transparent 60%)` }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: [0, 1, 0] }}
+        transition={{ duration: 0.7 }}
+      />
+    );
+  }
+
+  const mainBolts = [11, 23, 37].map((seed) => boltPath(HAND, TARGET, seed));
+  const branches = [5, 9].map((seed, i) => {
+    const mid = { x: HAND.x + (TARGET.x - HAND.x) * (0.45 + i * 0.15), y: HAND.y + (TARGET.y - HAND.y) * (0.45 + i * 0.15) };
+    const end = { x: mid.x + 60 + rand(seed, 2) * 80, y: mid.y + (i ? -1 : 1) * (70 + rand(seed, 3) * 60) };
+    return boltPath(mid, end, seed + 40, 6, 18);
+  });
+  const handArcs = [1, 2, 3, 4].map((seed) => arcAround(HAND, seed, 46));
+  const targetArcs = [5, 6, 7, 8, 9, 10].map((seed) => arcAround(TARGET, seed, 70));
+  const sparks = Array.from({ length: 16 }, (_, i) => {
+    const a = rand(i, 51) * Math.PI * 2;
+    const d = 70 + rand(i, 52) * 110;
+    return { x: Math.cos(a) * d, y: Math.sin(a) * d, delay: 0.42 + rand(i, 53) * 0.08 };
+  });
+
+  return (
+    <>
+      {/* Screen-wide electric tint on impact */}
+      <motion.div
+        className="absolute inset-0"
+        style={{ background: `radial-gradient(circle at 62% 40%, ${ELECTRIC.glow}40, ${ELECTRIC.deep}22 45%, transparent 75%)` }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: [0, 0, 1, 0] }}
+        transition={{ duration: 0.9, times: [0, 0.3, 0.45, 1] }}
+      />
+      <svg viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet" className="absolute inset-0 size-full">
+        {/* Rune circle at the hand */}
+        <motion.g
+          style={{ originX: `${HAND.x}px`, originY: `${HAND.y}px`, transformBox: "view-box" }}
+          initial={{ opacity: 0, scale: 0.4, rotate: 0 }}
+          animate={{ opacity: [0, 0.9, 0.9, 0], scale: [0.4, 1, 1.05, 1.2], rotate: 90 }}
+          transition={{ duration: 0.9, times: [0, 0.25, 0.6, 1], ease: "easeOut" }}
+        >
+          <circle cx={HAND.x} cy={HAND.y} r={58} fill="none" stroke={ELECTRIC.glow} strokeWidth={1.5} strokeDasharray="4 7" />
+          <circle cx={HAND.x} cy={HAND.y} r={44} fill="none" stroke={ELECTRIC.hot} strokeWidth={1} opacity={0.7} />
+          {Array.from({ length: 6 }, (_, i) => {
+            const a = (i / 6) * Math.PI * 2;
+            return (
+              <path
+                key={i}
+                d={`M ${HAND.x + Math.cos(a) * 44} ${HAND.y + Math.sin(a) * 44} L ${HAND.x + Math.cos(a + 0.2) * 58} ${HAND.y + Math.sin(a + 0.2) * 58}`}
+                stroke={ELECTRIC.hot}
+                strokeWidth={1.5}
+              />
+            );
+          })}
+        </motion.g>
+
+        {/* Charge glow in the hand */}
+        <motion.circle
+          cx={HAND.x}
+          cy={HAND.y}
+          r={34}
+          fill="url(#shock-orb)"
+          style={{ originX: `${HAND.x}px`, originY: `${HAND.y}px`, transformBox: "view-box" }}
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: [0, 1, 1.3, 0.6], opacity: [0, 1, 1, 0] }}
+          transition={{ duration: 0.8, times: [0, 0.3, 0.45, 1], ease: "easeOut" }}
+        />
+
+        {/* Crackle around the fingers while charging */}
+        <g>
+          {handArcs.map((d, i) => {
+            const f = flicker(0.04 + i * 0.05, [0, 0.12], TOTAL);
+            return (
+              <Bolt
+                key={`h${i}`}
+                d={d}
+                width={2}
+                core={ELECTRIC.hot}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: f.opacity }}
+                transition={{ duration: TOTAL, times: f.times, ease: "linear" }}
+              />
+            );
+          })}
+        </g>
+
+        {/* Main bolt: drawn from hand to target, then flickers between shapes */}
+        <g>
+          <motion.path
+            d={mainBolts[0]}
+            fill="none"
+            stroke={ELECTRIC.glow}
+            strokeOpacity={0.55}
+            strokeWidth={14}
+            strokeLinecap="round"
+            initial={{ pathLength: 0, opacity: 1 }}
+            animate={{ pathLength: [0, 1, 1], opacity: [1, 1, 0] }}
+            transition={{ duration: 0.38, delay: 0.24, times: [0, 0.4, 1], ease: "easeOut" }}
+          />
+          <motion.path
+            d={mainBolts[0]}
+            fill="none"
+            stroke={ELECTRIC.core}
+            strokeWidth={4}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            initial={{ pathLength: 0, opacity: 1 }}
+            animate={{ pathLength: [0, 1, 1], opacity: [1, 1, 0] }}
+            transition={{ duration: 0.38, delay: 0.24, times: [0, 0.4, 1], ease: "easeOut" }}
+          />
+          {mainBolts.map((d, i) => {
+            const f = flicker(0.36, [i * 0.05, 0.16 + i * 0.05], TOTAL);
+            return (
+              <Bolt
+                key={`m${i}`}
+                d={d}
+                width={i === 0 ? 3.5 : 2.5}
+                core={i === 0 ? ELECTRIC.core : ELECTRIC.hot}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: f.opacity }}
+                transition={{ duration: TOTAL, times: f.times, ease: "linear" }}
+              />
+            );
+          })}
+          {branches.map((d, i) => (
+            <motion.path
+              key={`b${i}`}
+              d={d}
+              fill="none"
+              stroke={ELECTRIC.hot}
+              strokeWidth={1.8}
+              initial={{ pathLength: 0, opacity: 0 }}
+              animate={{ pathLength: [0, 1], opacity: [0, 1, 0] }}
+              transition={{ duration: 0.3, delay: 0.32 + i * 0.05, ease: "easeOut" }}
+            />
+          ))}
+        </g>
+
+        {/* Impact: flash and shock rings on the target */}
+        <motion.circle
+          cx={TARGET.x}
+          cy={TARGET.y}
+          r={60}
+          fill="url(#shock-flash)"
+          style={{ originX: `${TARGET.x}px`, originY: `${TARGET.y}px`, transformBox: "view-box" }}
+          initial={{ scale: 0.2, opacity: 0 }}
+          animate={{ scale: [0.2, 1.6, 2], opacity: [0, 1, 0] }}
+          transition={{ duration: 0.45, delay: 0.36, ease: "easeOut" }}
+        />
+        {[0, 0.1].map((delay, i) => (
+          <motion.circle
+            key={`r${i}`}
+            cx={TARGET.x}
+            cy={TARGET.y}
+            r={40}
+            fill="none"
+            stroke={i ? ELECTRIC.deep : ELECTRIC.glow}
+            strokeWidth={3}
+            style={{ originX: `${TARGET.x}px`, originY: `${TARGET.y}px`, transformBox: "view-box" }}
+            initial={{ scale: 0.3, opacity: 0 }}
+            animate={{ scale: 3.2, opacity: [0, 0.9, 0] }}
+            transition={{ duration: 0.6, delay: 0.38 + delay, ease: "easeOut" }}
+          />
+        ))}
+
+        {/* Sparks thrown off the target */}
+        {sparks.map((p, i) => (
+          <motion.circle
+            key={`s${i}`}
+            cx={TARGET.x}
+            cy={TARGET.y}
+            r={2.6}
+            fill={ELECTRIC.hot}
+            initial={{ x: 0, y: 0, opacity: 0 }}
+            animate={{ x: p.x, y: p.y, opacity: [0, 1, 0] }}
+            transition={{ duration: 0.55, delay: p.delay, ease: "easeOut" }}
+          />
+        ))}
+
+        {/* Lingering static: no reactions until its next turn */}
+        <g>
+          {targetArcs.map((d, i) => {
+            const f = flicker(0.62 + (i % 3) * 0.06, [0, 0.18, 0.4], TOTAL);
+            return (
+              <Bolt
+                key={`t${i}`}
+                d={d}
+                width={1.8}
+                core={i % 2 ? ELECTRIC.glow : ELECTRIC.hot}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: f.opacity }}
+                transition={{ duration: TOTAL, times: f.times, ease: "linear" }}
+              />
+            );
+          })}
+        </g>
+
+        <defs>
+          <radialGradient id="shock-orb">
+            <stop offset="0%" stopColor={ELECTRIC.core} />
+            <stop offset="35%" stopColor={ELECTRIC.hot} />
+            <stop offset="70%" stopColor={ELECTRIC.glow} stopOpacity={0.6} />
+            <stop offset="100%" stopColor={ELECTRIC.deep} stopOpacity={0} />
+          </radialGradient>
+          <radialGradient id="shock-flash">
+            <stop offset="0%" stopColor={ELECTRIC.core} />
+            <stop offset="40%" stopColor={ELECTRIC.hot} stopOpacity={0.8} />
+            <stop offset="100%" stopColor={ELECTRIC.glow} stopOpacity={0} />
+          </radialGradient>
+        </defs>
+      </svg>
+    </>
   );
 }
