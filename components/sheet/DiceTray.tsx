@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { MinusIcon, PlusIcon, XIcon } from "lucide-react";
+import { AnimatePresence, motion, type Variants } from "motion/react";
 import { parseDice } from "@/lib/sheet";
 import { cn } from "@/lib/utils";
 
@@ -9,6 +10,21 @@ export type DiceGroup = { count: number; faces: number };
 type RollPoolFn = (groups: DiceGroup[], bonus: number, label: string) => void;
 
 const DICE = [20, 12, 100, 10, 8, 6, 4] as const;
+
+// Tray springs open from the launcher (bottom-left); dice cascade in.
+const trayMotion: Variants = {
+  closed: { opacity: 0, scale: 0.6, y: 24, transition: { duration: 0.15 } },
+  open: {
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    transition: { type: "spring", stiffness: 420, damping: 30, staggerChildren: 0.03, delayChildren: 0.05 },
+  },
+};
+const itemMotion: Variants = {
+  closed: { opacity: 0, y: 10, scale: 0.85 },
+  open: { opacity: 1, y: 0, scale: 1, transition: { type: "spring", stiffness: 500, damping: 26 } },
+};
 const MAX_CUSTOM = 8;
 
 // Outline icons for each die (original line art).
@@ -122,10 +138,17 @@ export function DiceTray({
 
   return (
     <div ref={panel} className="fixed bottom-4 left-4 z-40">
+      <AnimatePresence>
       {open && (
-        <div
+        <motion.div
+          key="tray"
           role="dialog"
           aria-label="Roll dice"
+          variants={trayMotion}
+          initial="closed"
+          animate="open"
+          exit="closed"
+          style={{ transformOrigin: "bottom left" }}
           className="absolute bottom-16 left-0 w-[min(20rem,calc(100vw-2rem))] rounded-xl border border-white/10 bg-zinc-900 p-4 text-zinc-50 shadow-2xl"
         >
           <div className="mb-3 flex items-center justify-between">
@@ -139,8 +162,10 @@ export function DiceTray({
 
           <div className="grid grid-cols-4 gap-1">
             {DICE.map((f) => (
-              <button
+              <motion.button
                 key={f}
+                variants={itemMotion}
+                whileTap={{ scale: 0.88 }}
                 type="button"
                 onClick={() => setPool((p) => ({ ...p, [f]: Math.min(20, (p[f] ?? 0) + 1) }))}
                 onContextMenu={(e) => {
@@ -155,14 +180,23 @@ export function DiceTray({
               >
                 <DieIcon faces={f} className="size-9" />
                 <span className="text-sm font-semibold">d{f}</span>
-                {pool[f] ? (
-                  <span className="absolute top-1 right-2 flex size-5 items-center justify-center rounded-full bg-red-600 text-[0.7rem] font-bold">
-                    {pool[f]}
-                  </span>
-                ) : null}
-              </button>
+                <AnimatePresence>
+                  {pool[f] ? (
+                    <motion.span
+                      key={pool[f]}
+                      initial={{ scale: 1.8, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0, opacity: 0 }}
+                      transition={{ type: "spring", stiffness: 600, damping: 20 }}
+                      className="absolute top-1 right-2 flex size-5 items-center justify-center rounded-full bg-red-600 text-[0.7rem] font-bold"
+                    >
+                      {pool[f]}
+                    </motion.span>
+                  ) : null}
+                </AnimatePresence>
+              </motion.button>
             ))}
-            <div className="flex flex-col items-center justify-center gap-1 rounded-lg py-2">
+            <motion.div variants={itemMotion} className="flex flex-col items-center justify-center gap-1 rounded-lg py-2">
               <span className="text-[0.65rem] font-semibold tracking-wider text-zinc-400 uppercase">Mod</span>
               <div className="flex items-center gap-1">
                 <button type="button" onClick={() => setBonus((b) => b - 1)} aria-label="Decrease modifier" className="rounded p-0.5 hover:bg-white/10">
@@ -173,7 +207,7 @@ export function DiceTray({
                   <PlusIcon className="size-3.5" />
                 </button>
               </div>
-            </div>
+            </motion.div>
           </div>
 
           <p className="mt-2 min-h-5 text-center text-sm text-zinc-300">
@@ -246,18 +280,29 @@ export function DiceTray({
             </form>
             {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
           </div>
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
-      <button
+      <motion.button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-label={open ? "Close dice tray" : "Open dice tray"}
         aria-expanded={open}
+        whileHover={{ scale: 1.06 }}
+        whileTap={{ scale: 0.86 }}
+        transition={{ type: "spring", stiffness: 500, damping: 22 }}
         className="flex size-14 items-center justify-center rounded-full bg-zinc-900 text-white shadow-lg ring-2 ring-white/20 hover:bg-zinc-800"
       >
-        <DieIcon faces={20} className="size-8" />
-      </button>
+        {/* The d20 spins a third of a turn as the tray opens/closes. */}
+        <motion.span
+          animate={{ rotate: open ? 120 : 0 }}
+          transition={{ type: "spring", stiffness: 260, damping: 16 }}
+          className="flex"
+        >
+          <DieIcon faces={20} className="size-8" />
+        </motion.span>
+      </motion.button>
     </div>
   );
 }

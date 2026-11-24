@@ -8,6 +8,7 @@ import { AuthProvider } from "@/components/auth/auth-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { authClient } from "@/lib/auth-client";
+import { MotionConfig } from "motion/react";
 
 // App-wide client providers: Better Auth UI (Google-only sign-in),
 // its React Query cache, tooltips and toasts.
@@ -16,6 +17,8 @@ export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
 
   return (
+    // reducedMotion="user": animations follow the OS "reduce motion" setting.
+    <MotionConfig reducedMotion="user">
     <QueryClientProvider client={queryClient}>
       <AuthProvider
         authClient={authClient}
@@ -29,5 +32,6 @@ export function Providers({ children }: { children: ReactNode }) {
         <Toaster />
       </AuthProvider>
     </QueryClientProvider>
+    </MotionConfig>
   );
 }

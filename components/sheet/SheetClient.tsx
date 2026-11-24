@@ -52,6 +52,7 @@ import {
   XIcon,
 } from "lucide-react";
 import { useIsMobile } from "@/components/sheet/useIsMobile";
+import { AnimatePresence, motion, type Variants } from "motion/react";
 import { cn } from "@/lib/utils";
 import {
   ABILITIES,
@@ -99,6 +100,17 @@ type SpellDetail = {
 };
 
 type LogEntry = RollResult & { label: string; at: number };
+
+// Phone section menu: tiles cascade up from the menu button (bottom-right)
+// and fold back down in reverse order.
+const menuMotion: Variants = {
+  open: { transition: { staggerChildren: 0.035, staggerDirection: -1 } },
+  closed: { transition: { staggerChildren: 0.02 } },
+};
+const menuItemMotion: Variants = {
+  closed: { opacity: 0, y: 24, scale: 0.9 },
+  open: { opacity: 1, y: 0, scale: 1, transition: { type: "spring", stiffness: 480, damping: 28 } },
+};
 
 type MobileSection =
   | "abilities"
@@ -824,24 +836,53 @@ export default function SheetClient({
         </div>
 
         {/* Section menu */}
-        <button
+        <motion.button
           type="button"
           onClick={() => setMenuOpen((o) => !o)}
           aria-label={menuOpen ? "Close sections menu" : "Open sections menu"}
           aria-expanded={menuOpen}
+          whileHover={{ scale: 1.06 }}
+          whileTap={{ scale: 0.86 }}
+          transition={{ type: "spring", stiffness: 500, damping: 22 }}
           className="fixed right-4 bottom-4 z-50 flex size-14 items-center justify-center rounded-full bg-zinc-900 text-white shadow-lg ring-2 ring-white/20"
         >
-          {menuOpen ? <XIcon className="size-6" /> : <LayoutGridIcon className="size-6" />}
-        </button>
+          {/* Grid icon rotates into a close icon. */}
+          <AnimatePresence mode="popLayout" initial={false}>
+            <motion.span
+              key={menuOpen ? "close" : "open"}
+              initial={{ rotate: -90, scale: 0.5, opacity: 0 }}
+              animate={{ rotate: 0, scale: 1, opacity: 1 }}
+              exit={{ rotate: 90, scale: 0.5, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 500, damping: 26 }}
+              className="flex"
+            >
+              {menuOpen ? <XIcon className="size-6" /> : <LayoutGridIcon className="size-6" />}
+            </motion.span>
+          </AnimatePresence>
+        </motion.button>
+        <AnimatePresence>
         {menuOpen && (
-          <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setMenuOpen(false)}>
-            <nav
+          <motion.div
+            key="menu"
+            className="fixed inset-0 z-40 bg-black/40"
+            onClick={() => setMenuOpen(false)}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, transition: { duration: 0.2, delay: 0.1 } }}
+          >
+            <motion.nav
               className="absolute inset-x-3 bottom-22 grid grid-cols-2 gap-2"
               onClick={(e) => e.stopPropagation()}
               aria-label="Sheet sections"
+              variants={menuMotion}
+              initial="closed"
+              animate="open"
+              exit="closed"
             >
               {MOBILE_SECTIONS.map(({ key, label, icon: Icon, wide }) => (
-                <button
+                <motion.button
+                  variants={menuItemMotion}
+                  whileTap={{ scale: 0.94 }}
                   key={key}
                   type="button"
                   onClick={() => go(key)}
@@ -856,9 +897,9 @@ export default function SheetClient({
                     {label}
                     {zhOf(label) && <span className="block font-normal tracking-normal text-zinc-400 normal-case">{zhOf(label)}</span>}
                   </span>
-                </button>
+                </motion.button>
               ))}
-              <div className="col-span-2 mt-1 grid grid-cols-3 gap-2">
+              <motion.div variants={menuItemMotion} className="col-span-2 mt-1 grid grid-cols-3 gap-2">
                 {(
                   [
                     ["Short Rest", () => setShortRestOpen(true)],
@@ -883,10 +924,11 @@ export default function SheetClient({
                 <Link href="/" className="rounded-lg bg-white px-2 py-2 text-center text-xs font-medium text-zinc-900 shadow-lg">
                   Library
                 </Link>
-              </div>
-            </nav>
-          </div>
+              </motion.div>
+            </motion.nav>
+          </motion.div>
         )}
+        </AnimatePresence>
 
         {overlays}
       </main>
