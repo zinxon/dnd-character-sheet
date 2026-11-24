@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/select";
 import { Zh } from "@/components/Zh";
 import { SubclassSelect } from "@/components/SubclassSelect";
+import { RaceSelect } from "@/components/RaceSelect";
 import {
   ABILITIES,
   ABILITY_NAMES,
@@ -144,7 +145,15 @@ export default function LibraryPage() {
   };
 
   return (
-    <main className="min-h-svh">
+    <main className="relative isolate min-h-svh">
+      {/* Decorative backdrop: the logo wordmark, faded into a warm glow. */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_40%,color-mix(in_oklab,var(--primary)_18%,transparent),transparent_65%)]" />
+        <div
+          className="absolute top-[42%] left-1/2 aspect-[560/232] w-[min(92vw,900px)] -translate-x-1/2 -translate-y-1/2 bg-contain bg-center bg-no-repeat opacity-20"
+          style={{ backgroundImage: "url(/assets/background.png)" }}
+        />
+      </div>
       <header className="border-b border-border bg-sidebar text-sidebar-foreground">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-3 px-4 py-4 sm:px-6">
           <h1 className="text-2xl font-semibold">
@@ -366,7 +375,7 @@ function CreateDialog({
             </div>
             <div className="grid gap-2">
               <Label htmlFor="cc-race">Race</Label>
-              <Input id="cc-race" value={race} onChange={(e) => setRace(e.target.value)} />
+              <RaceSelect id="cc-race" value={race} onChange={setRace} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="cc-bg">Background</Label>
