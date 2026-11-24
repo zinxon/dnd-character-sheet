@@ -1280,6 +1280,29 @@ function LimitedFeaturesCard({ data, set }: { data: CharData; set: SetFn }) {
                   </span>
                 ) : null}
               </span>
+              {max > 10 ? (
+                // Big pools (Lay on Hands, Focus Points …): a stepper, not pips.
+                <span className="flex gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    aria-label={`Use ${s(data[`lfname-${i}`])}`}
+                    disabled={used >= max}
+                    onClick={() => set({ [`lfused-${i}`]: String(used + 1) })}
+                  >
+                    −
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    aria-label={`Restore ${s(data[`lfname-${i}`])}`}
+                    disabled={used <= 0}
+                    onClick={() => set({ [`lfused-${i}`]: String(used - 1) })}
+                  >
+                    +
+                  </Button>
+                </span>
+              ) : (
               <span className="flex gap-1">
                 {Array.from({ length: max }, (_, p) => (
                   <button
@@ -1293,6 +1316,7 @@ function LimitedFeaturesCard({ data, set }: { data: CharData; set: SetFn }) {
                   />
                 ))}
               </span>
+              )}
               <span className="text-muted-foreground">
                 {max - used} / {max} · {s(data[`lfrec-${i}`]) || "—"}
               </span>

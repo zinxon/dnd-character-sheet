@@ -305,6 +305,9 @@ function CharacterDialog({
   });
   const [skills, setSkills] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  // New characters are always auto-built; editing asks first because it
+  // replaces hand-written features, attacks and spells.
+  const [autoBuild, setAutoBuild] = useState(!editId);
   const core = classCore(classes[0]?.name ?? "");
   const total = classes.reduce((sum, c) => sum + c.level, 0);
   const loaded = !editing || original !== null;
@@ -350,8 +353,21 @@ function CharacterDialog({
     };
   };
 
+  // Features, spells, attacks, limited-use features, proficiencies and
+  // speed for this class build + race, from the SRD data (server side).
+  const fetchBuild = async (): Promise<Partial<CharData>> => {
+    if (!autoBuild) return {};
+    const res = await fetch("/api/build", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ classes, race, scores }),
+    });
+    return res.ok ? ((await res.json()) as Partial<CharData>) : {};
+  };
+
   const save = async () => {
     setSaving(true);
+    const built = await fetchBuild();
     let id = editId;
     if (editing && original) {
       const fields = buildFields();
@@ -361,7 +377,7 @@ function CharacterDialog({
           if (/^slot\d$|^spell(ability|class)$/.test(k)) delete fields[k];
         }
       }
-      const data: CharData = { ...original, ...fields };
+      const data: CharData = { ...original, ...fields, ...built };
       const oldScores = abilityScores(original);
       const scoresChanged = ABILITIES.some((a) => oldScores[a] !== scores[a]);
       if (scoresChanged) {
@@ -381,7 +397,7 @@ function CharacterDialog({
         body: JSON.stringify({ data }),
       });
     } else {
-      const data: CharData = { ...blankCharacter(name.trim() || "Unnamed"), ...buildFields() };
+      const data: CharData = { ...blankCharacter(name.trim() || "Unnamed"), ...buildFields(), ...built };
       data.manualScores = Object.fromEntries(ABILITIES.map((a) => [a, String(scores[a])]));
       // Saving throws and skills come from the first class.
       for (const s of core?.saves ?? []) data[`savep-${s}`] = true;
@@ -411,6 +427,7 @@ function CharacterDialog({
         <DialogHeader>
           <DialogTitle className="font-medium">
             {editing ? "Edit character" : "Create character"}
+            <Zh text={editing ? "Edit character" : "Create character"} />
           </DialogTitle>
         </DialogHeader>
         {!loaded ? (
@@ -418,13 +435,13 @@ function CharacterDialog({
         ) : (
           <div className="grid gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="cc-name">Name</Label>
+              <Label htmlFor="cc-name">Name<Zh text="Name" /></Label>
               <Input id="cc-name" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
 
             <div className="grid gap-2">
               <div className="flex items-center gap-2">
-                <Label>Classes</Label>
+                <Label>Classes<Zh text="Classes" /></Label>
                 <span className={total > 20 ? "text-sm text-destructive" : "text-sm text-muted-foreground"}>
                   Total level {total}
                   {total > 20 && " (max 20)"}
@@ -512,30 +529,30 @@ function CharacterDialog({
 
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-2">
-                <Label htmlFor="cc-race">Race</Label>
+                <Label htmlFor="cc-race">Race<Zh text="Race" /></Label>
                 <RaceSelect id="cc-race" value={race} onChange={setRace} />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="cc-bg">Background</Label>
+                <Label htmlFor="cc-bg">Background<Zh text="Background" /></Label>
                 <Input id="cc-bg" value={background} onChange={(e) => setBackground(e.target.value)} />
               </div>
             </div>
             <div className="grid gap-2">
-              <Label>Alignment</Label>
+              <Label>Alignment<Zh text="Alignment" /></Label>
               <Select value={alignment} onValueChange={(v) => setAlignment(v ?? "")}>
                 <SelectTrigger>
                   <SelectValue placeholder="Choose" />
                 </SelectTrigger>
                 <SelectContent>
                   {ALIGNMENTS.map((a) => (
-                    <SelectItem key={a} value={a}>{a}</SelectItem>
+                    <SelectItem key={a} value={a}>{a}<Zh text={a} /></SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="grid gap-2">
               <div className="flex flex-wrap items-center gap-2">
-                <Label>Ability scores</Label>
+                <Label>Ability scores<Zh text="Ability scores" /></Label>
                 <Button
                   type="button" size="sm" variant="outline"
                   onClick={() =>
@@ -574,10 +591,33 @@ function CharacterDialog({
                 ))}
               </div>
             </div>
+            {editing ? (
+              <label className="flex items-start gap-2 rounded-lg border p-3 text-sm">
+                <Checkbox
+                  checked={autoBuild}
+                  onCheckedChange={(v) => setAutoBuild(Boolean(v))}
+                  className="mt-0.5"
+                />
+                <span>
+                  Auto-fill features, spells and actions from the classes and race
+                  <Zh text="Auto-fill features, spells and actions from the classes and race" />
+                  <span className="block text-xs text-muted-foreground">
+                    Replaces this character&apos;s current features &amp; traits, proficiencies,
+                    attacks, limited-use features and spell list.
+                  </span>
+                </span>
+              </label>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Features, spells and actions are filled in from the classes, subclasses and
+                race. Subclasses outside the free SRD rules get a reminder to add theirs.
+              </p>
+            )}
             {core && !editing && (
               <div className="grid gap-2">
                 <Label>
                   Skill proficiencies (choose {core.skillCount})
+                  <Zh text="Skill proficiencies" />
                 </Label>
                 <div className="grid grid-cols-2 gap-1.5">
                   {SKILLS.filter((s) => core.skillsFrom.includes(s.key)).map((s) => (
