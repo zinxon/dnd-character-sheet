@@ -34,7 +34,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Zh, zhOf } from "@/components/Zh";
 import { playSpellSound } from "@/lib/spellSound";
 import { Portrait } from "@/components/sheet/Portrait";
-import { DiceRail } from "@/components/sheet/DiceRail";
+import { DiceTray } from "@/components/sheet/DiceTray";
 import { AbilityBox, BonusButton, Panel, ProfDot, StatBox } from "@/components/sheet/blocks";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -43,6 +43,7 @@ import {
   BookOpenIcon,
   DumbbellIcon,
   LayoutGridIcon,
+  Loader2Icon,
   NotebookPenIcon,
   ScrollTextIcon,
   SparklesIcon,
@@ -68,6 +69,7 @@ import {
   profBonus,
   parseDice,
   rollDice,
+  rollPool as poolResult,
   saveBonus,
   skillBonus,
   slotTotals,
@@ -136,6 +138,10 @@ export default function SheetClient({
   const [levelUpOpen, setLevelUpOpen] = useState(false);
   const [shortRestOpen, setShortRestOpen] = useState(false);
   const [hpAmount, setHpAmount] = useState("");
+  // The roll currently animating (its result arrives when the dice settle).
+  const [pending, setPending] = useState<{ label: string; expr: string } | null>(null);
+  // The latest result shows as a notification for a few seconds.
+  const [shownAt, setShownAt] = useState<number | null>(null);
   const isMobile = useIsMobile();
   const [mobileSection, setMobileSection] = useState<MobileSection>("abilities");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -168,15 +174,20 @@ export default function SheetClient({
 
   const roll = useCallback(async (label: string, expr: string) => {
     let landed: number[] | null = null;
+    const me = { label, expr };
     try {
       const { count, faces } = parseDice(expr);
       if (ANIMATED_FACES.includes(faces) && count <= MAX_ANIMATED_DICE) {
         // The physics decides the result: wait for the dice to settle.
+        setPending(me);
         const { rollPhysical } = await import("@/lib/diceBox");
         landed = await rollPhysical(count, faces);
       }
     } catch {
       // fall through to a plain random roll
+    } finally {
+      // Clear only our own marker — a newer roll may have replaced it.
+      setPending((p) => (p === me ? null : p));
     }
     try {
       const result = rollDice(expr, landed ?? undefined);
@@ -185,6 +196,39 @@ export default function SheetClient({
       // unparsable damage strings etc. — ignore
     }
   }, []);
+
+  const latestAt = log[0]?.at;
+  useEffect(() => {
+    if (!latestAt) return;
+    setShownAt(latestAt);
+    const t = setTimeout(() => setShownAt((cur) => (cur === latestAt ? null : cur)), 4000);
+    return () => clearTimeout(t);
+  }, [latestAt]);
+
+  // Roll a mixed pool from the dice tray (e.g. 2d6 + 1d8 + 2).
+  const rollDicePool = useCallback(
+    async (groups: { count: number; faces: number }[], bonus: number, label: string) => {
+      const me = { label, expr: label };
+      let landed: number[][] | null = null;
+      const animate =
+        groups.every((g) => ANIMATED_FACES.includes(g.faces)) &&
+        groups.reduce((a, g) => a + g.count, 0) <= MAX_ANIMATED_DICE;
+      try {
+        if (animate) {
+          setPending(me);
+          const { rollPool } = await import("@/lib/diceBox");
+          landed = await rollPool(groups);
+        }
+      } catch {
+        // fall through to a plain random roll
+      } finally {
+        setPending((p) => (p === me ? null : p));
+      }
+      const result = poolResult(groups, bonus, landed);
+      setLog((prev) => [{ ...result, label, at: Date.now() }, ...prev].slice(0, 30));
+    },
+    [],
+  );
 
   useEffect(() => {
     import("@/lib/diceBox").then((m) => m.preloadDiceBox()).catch(() => {});
@@ -585,35 +629,45 @@ export default function SheetClient({
 
   const overlays = (
     <>
-      {/* 3D dice overlay — dice-box draws its canvas in here; above dialogs (z-50) */}
-      <div id="dice-box" aria-hidden className="pointer-events-none fixed inset-0 z-[100]" />
-
-      <DiceRail
+      {/* The 3D dice overlay is created by lib/diceBox on <body>, outside React. */}
+      <DiceTray
         custom={(data.customDice as string[] | undefined) ?? []}
         onCustomChange={(customDice) => set({ customDice })}
-        roll={roll}
+        rollPool={rollDicePool}
       />
 
-      {log.length > 0 && (
+      {/* Hidden while the dice roller is open — its own log shows the same. */}
+      {!diceOpen && (pending || (log.length > 0 && shownAt === log[0].at)) && (
         <button
           type="button"
           onClick={() => setDiceOpen(true)}
-          // Mobile: centre of the screen. Desktop: top-right, below the header.
-          className="fixed top-1/2 left-1/2 z-50 flex -translate-x-1/2 -translate-y-1/2 items-center gap-3 rounded-full border bg-background px-4 py-2 shadow-lg lg:top-16 lg:right-4 lg:left-auto lg:translate-x-0 lg:translate-y-0"
+          // Top-right on every screen size, like a notification.
+          className="fixed top-3 right-3 z-50 flex max-w-[calc(100vw-1.5rem)] items-center gap-3 rounded-full border bg-background px-4 py-2 shadow-lg"
           aria-label="Latest roll — open dice roller"
         >
-          <span key={log[0].at} className="text-xl font-medium [animation:rollpop_.2s_ease-out]">
-            {log[0].total}
-          </span>
-          <span className="max-w-56 truncate text-sm text-muted-foreground">
-            {log[0].label} · {log[0].detail}
-            {log[0].nat === "crit" ? " · critical!" : log[0].nat === "fumble" ? " · fumble" : ""}
-          </span>
+          {pending ? (
+            <>
+              <Loader2Icon className="size-5 animate-spin" />
+              <span className="max-w-56 truncate text-sm text-muted-foreground">
+                Rolling {pending.label === pending.expr ? pending.expr : `${pending.label} · ${pending.expr}`}…
+              </span>
+            </>
+          ) : (
+            <>
+              <span key={log[0].at} className="text-xl font-medium [animation:rollpop_.2s_ease-out]">
+                {log[0].total}
+              </span>
+              <span className="max-w-56 truncate text-sm text-muted-foreground">
+                {log[0].label} · {log[0].detail}
+                {log[0].nat === "crit" ? " · critical!" : log[0].nat === "fumble" ? " · fumble" : ""}
+              </span>
+            </>
+          )}
         </button>
       )}
       <style>{`@keyframes rollpop { from { transform: scale(1.35); } to { transform: scale(1); } }`}</style>
 
-      <DiceDialog open={diceOpen} onOpenChange={setDiceOpen} roll={roll} log={log} />
+      <DiceDialog open={diceOpen} onOpenChange={setDiceOpen} roll={roll} log={log} pending={pending} />
       <LevelUpDialog
         open={levelUpOpen}
         onOpenChange={setLevelUpOpen}
@@ -843,7 +897,7 @@ export default function SheetClient({
   return (
     <main className="min-h-svh bg-muted/50 pb-12">
       <header className="bg-zinc-900 text-zinc-50">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-3 lg:pr-16">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-3">
           <Portrait
             src={s(data.portrait)}
             name={s(data.charname)}
@@ -909,7 +963,7 @@ export default function SheetClient({
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-4 lg:pr-16">
+      <div className="mx-auto max-w-7xl px-4">
         {/* Stat strip */}
         <section className="grid grid-cols-6 gap-2 py-4 xl:grid-cols-[repeat(6,minmax(0,1fr))_repeat(3,minmax(0,0.9fr))_minmax(310px,3fr)]">
           {abilityBoxes}
@@ -1644,11 +1698,13 @@ function DiceDialog({
   onOpenChange,
   roll,
   log,
+  pending,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   roll: RollFn;
   log: LogEntry[];
+  pending: { label: string; expr: string } | null;
 }) {
   const [expr, setExpr] = useState("1d20");
   const quick = ["1d4", "1d6", "1d8", "1d10", "1d12", "1d20", "1d100", "2d6", "4d6"];
@@ -1676,6 +1732,12 @@ function DiceDialog({
         </div>
         <ScrollArea className="h-40">
           <ul className="grid gap-1 text-sm">
+            {pending && (
+              <li className="flex items-center gap-2" aria-live="polite">
+                <Loader2Icon className="size-4 animate-spin" />
+                <span className="text-muted-foreground">Rolling {pending.expr}…</span>
+              </li>
+            )}
             {log.map((entry) => (
               <li key={entry.at + entry.label} className="flex items-baseline gap-2">
                 <span className="font-medium">{entry.total}</span>

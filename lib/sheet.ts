@@ -254,6 +254,32 @@ export type RollResult = {
   dieFaces: number;
 };
 
+// Result for a mixed dice pool (e.g. 2d6 + 1d8 + 2). Pass `landed` with the
+// physical dice values per group; missing groups are rolled with Math.random.
+export function rollPool(
+  groups: { count: number; faces: number }[],
+  bonus = 0,
+  landed?: number[][] | null,
+): RollResult {
+  const values = groups.map((g, i) =>
+    landed?.[i]?.length === g.count
+      ? landed[i]
+      : Array.from({ length: g.count }, () => 1 + Math.floor(Math.random() * g.faces)),
+  );
+  const expr =
+    groups.map((g) => `${g.count}d${g.faces}`).join("+") + (bonus ? fmt(bonus) : "");
+  const total = values.flat().reduce((a, b) => a + b, 0) + bonus;
+  const single = groups.length === 1 && groups[0].count === 1 && groups[0].faces === 20;
+  return {
+    expr,
+    total,
+    detail: values.map((v) => `[${v.join(", ")}]`).join(" + ") + (bonus ? ` ${fmt(bonus)}` : ""),
+    nat: single ? (values[0][0] === 20 ? "crit" : values[0][0] === 1 ? "fumble" : null) : null,
+    rolls: values.flat(),
+    dieFaces: groups[0]?.faces ?? 20,
+  };
+}
+
 // Parse a roll expression into its dice: "2d6+3" → 2 × d6, +3.
 // Plain "20" is a d20 check with that bonus.
 export function parseDice(exprRaw: string): { count: number; faces: number; bonus: number } {
