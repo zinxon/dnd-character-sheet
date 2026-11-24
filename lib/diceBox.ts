@@ -55,14 +55,24 @@ function getBox(): Promise<DiceBoxType | null> {
         // viewport instead of the default 300×150 canvas stretched to fit.
         const canvas = document.querySelector<HTMLCanvasElement>(`#${CONTAINER_ID} > canvas`);
         if (canvas) Object.assign(canvas.style, { width: "100%", height: "100%", display: "block" });
-        await box.init();
+        // Guard against a hung start (e.g. an asset request that never
+        // settles): give up after 10 s so rolls fall back and retry later.
+        await Promise.race([
+          box.init(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("dice-box init timed out")), 10_000)),
+        ]);
         // Only with a real canvas: without WebGL dice-box has none and its
         // resize handler would throw.
         if (canvas) window.dispatchEvent(new Event("resize"));
         return box;
       })
       .catch((err) => {
+        // Often transient (e.g. an asset request failing while the dev server
+        // restarts). Forget the failure so the next roll tries again instead
+        // of leaving 3D dice off until a reload; this roll falls back to RNG.
         console.warn("dice-box unavailable, using plain rolls", err);
+        boxPromise = null;
+        document.getElementById(CONTAINER_ID)?.replaceChildren();
         return null;
       });
   }

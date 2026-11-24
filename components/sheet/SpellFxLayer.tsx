@@ -5,28 +5,48 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { SPELL_FX_EVENT, type BuiltInFx, type SpellFxDetail } from "@/lib/spellFx";
 
 type Play = SpellFxDetail & { id: number; useVideo: boolean };
+type Cast = { id: number; kind: "fire" };
+
+// Time from the fireball leaving the caster to the explosion.
+const FIREBALL_FLIGHT_MS = 560;
 
 // Plays spell effects on cast. Built-in effects live in a click-through
 // full-screen layer; videos are separate top-level elements so their
 // `mix-blend-mode: screen` blends with the sheet underneath (inside the
 // layer's own stacking context they would only blend with empty space).
-export function SpellFxLayer() {
+// With a character portrait, the portrait appears as the caster: a Fireball
+// is hurled from it before exploding, Shocking Grasp springs from it.
+export function SpellFxLayer({ portrait = "" }: { portrait?: string }) {
   const [plays, setPlays] = useState<Play[]>([]);
+  const [casts, setCasts] = useState<Cast[]>([]);
   const reduced = useReducedMotion();
-
-  useEffect(() => {
-    const onFx = (e: Event) => {
-      const d = (e as CustomEvent<SpellFxDetail>).detail;
-      setPlays((p) => [...p, { ...d, id: Date.now() + Math.random(), useVideo: Boolean(d.video) && !reducedRef.current }]);
-    };
-    window.addEventListener(SPELL_FX_EVENT, onFx);
-    return () => window.removeEventListener(SPELL_FX_EVENT, onFx);
-  }, []);
-  // Reduced motion: skip videos, use the gentle built-in fallback.
   const reducedRef = useRef(false);
   reducedRef.current = Boolean(reduced);
+  const portraitRef = useRef(portrait);
+  portraitRef.current = portrait;
+
+  useEffect(() => {
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const onFx = (e: Event) => {
+      const d = (e as CustomEvent<SpellFxDetail>).detail;
+      const play = () =>
+        setPlays((p) => [...p, { ...d, id: Date.now() + Math.random(), useVideo: Boolean(d.video) && !reducedRef.current }]);
+      if (d.builtIn === "fireball" && portraitRef.current && !reducedRef.current) {
+        setCasts((c) => [...c, { id: Date.now() + Math.random(), kind: "fire" }]);
+        timers.push(setTimeout(play, FIREBALL_FLIGHT_MS));
+      } else {
+        play();
+      }
+    };
+    window.addEventListener(SPELL_FX_EVENT, onFx);
+    return () => {
+      window.removeEventListener(SPELL_FX_EVENT, onFx);
+      timers.forEach(clearTimeout);
+    };
+  }, []);
 
   const done = (id: number) => setPlays((p) => p.filter((x) => x.id !== id));
+  const castDone = (id: number) => setCasts((c) => c.filter((x) => x.id !== id));
   // A video that can't play falls back to the built-in effect (if any).
   const videoFailed = (play: Play) =>
     setPlays((p) =>
@@ -50,12 +70,21 @@ export function SpellFxLayer() {
             className="pointer-events-none fixed top-1/2 left-1/2 z-[95] size-[min(90vw,90vh)] -translate-x-1/2 -translate-y-1/2 object-contain mix-blend-screen"
           />
         ))}
-      <div aria-hidden className="pointer-events-none fixed inset-0 z-[95] overflow-hidden">
+      <div aria-hidden className="pointer-events-none fixed inset-0 z-[96] overflow-hidden">
         <AnimatePresence>
+          {casts.map((c) => (
+            <FireballCaster key={c.id} portrait={portrait} onDone={() => castDone(c.id)} />
+          ))}
           {plays
             .filter((play) => !play.useVideo && play.builtIn)
             .map((play) => (
-              <BuiltIn key={play.id} kind={play.builtIn!} reduced={Boolean(reduced)} onDone={() => done(play.id)} />
+              <BuiltIn
+                key={play.id}
+                kind={play.builtIn!}
+                portrait={portrait}
+                reduced={Boolean(reduced)}
+                onDone={() => done(play.id)}
+              />
             ))}
         </AnimatePresence>
       </div>
@@ -63,10 +92,102 @@ export function SpellFxLayer() {
   );
 }
 
-function BuiltIn({ kind, reduced, onDone }: { kind: BuiltInFx; reduced: boolean; onDone: () => void }) {
+function BuiltIn({
+  kind,
+  portrait,
+  reduced,
+  onDone,
+}: {
+  kind: BuiltInFx;
+  portrait: string;
+  reduced: boolean;
+  onDone: () => void;
+}) {
   if (kind === "fireball") return <Fireball reduced={reduced} onDone={onDone} />;
-  if (kind === "shock") return <ShockingGrasp reduced={reduced} onDone={onDone} />;
+  if (kind === "shock") return <ShockingGrasp portrait={portrait} reduced={reduced} onDone={onDone} />;
+  if (kind === "bolt") return <LightningBolt portrait={portrait} reduced={reduced} onDone={onDone} />;
   return null;
+}
+
+// The character as caster: their portrait springs in as a glowing
+// medallion (bottom-left), then hurls a comet-like fireball to the centre
+// of the screen, where the explosion takes over.
+function FireballCaster({ portrait, onDone }: { portrait: string; onDone: () => void }) {
+  const [path] = useState(() => {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const size = w < 768 ? 84 : 128;
+    const from = { x: w < 768 ? 24 + size / 2 : 64 + size / 2, y: h - (w < 768 ? 120 : 96) - size / 2 };
+    return { size, from, dx: w / 2 - from.x, dy: h / 2 - from.y };
+  });
+  useEffect(() => {
+    const t = setTimeout(onDone, 2000);
+    return () => clearTimeout(t);
+  }, [onDone]);
+
+  const { size, from, dx, dy } = path;
+  const launch = 0.28;
+  const flight = FIREBALL_FLIGHT_MS / 1000 - launch;
+
+  return (
+    <>
+      {/* Caster medallion */}
+      <motion.div
+        className="absolute"
+        style={{ left: from.x - size / 2, top: from.y - size / 2, width: size, height: size }}
+        initial={{ scale: 0.3, opacity: 0, y: 30 }}
+        animate={{ scale: [0.3, 1.08, 1, 1, 0.9], opacity: [0, 1, 1, 1, 0], y: [30, 0, 0, 0, 10] }}
+        transition={{ duration: 1.9, times: [0, 0.14, 0.22, 0.75, 1], ease: "easeOut" }}
+      >
+        {/* Fiery aura pulsing behind the portrait */}
+        <motion.span
+          className="absolute -inset-[30%] rounded-full"
+          style={{ background: "radial-gradient(circle, #ffb34799 0%, #ff6b1a55 40%, transparent 70%)" }}
+          animate={{ scale: [0.8, 1.15, 0.95, 1.1], opacity: [0.6, 1, 0.8, 0.5] }}
+          transition={{ duration: 1.2, ease: "easeInOut" }}
+        />
+        <motion.span
+          className="absolute -inset-1 rounded-full border-2 border-dashed border-orange-300/80"
+          animate={{ rotate: 120 }}
+          transition={{ duration: 1.9, ease: "linear" }}
+        />
+        {/* eslint-disable-next-line @next/next/no-img-element -- data URL */}
+        <img
+          src={portrait}
+          alt=""
+          className="relative size-full rounded-full border-4 border-orange-400 object-cover shadow-[0_0_30px_8px_#ff7a1a88]"
+        />
+        {/* Recoil flash as the fireball is thrown */}
+        <motion.span
+          className="absolute inset-0 rounded-full bg-orange-200 mix-blend-screen"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0, 0, 0.9, 0] }}
+          transition={{ duration: 0.5, times: [0, 0.5, 0.6, 1] }}
+        />
+      </motion.div>
+
+      {/* Fireball projectile with a fading comet trail */}
+      {[0, 1, 2, 3].map((i) => (
+        <motion.span
+          key={i}
+          className="absolute rounded-full"
+          style={{
+            left: from.x,
+            top: from.y,
+            width: 44 - i * 8,
+            height: 44 - i * 8,
+            marginLeft: -(22 - i * 4),
+            marginTop: -(22 - i * 4),
+            background: "radial-gradient(circle at 40% 35%, #fffbe0, #ffd23f 35%, #ff7a1a 65%, #c4280b)",
+            boxShadow: i === 0 ? "0 0 24px 10px #ff7a1a99" : undefined,
+          }}
+          initial={{ x: 0, y: 0, scale: 0, opacity: 0 }}
+          animate={{ x: [0, 0, dx], y: [0, 0, dy], scale: [0, 1, 1.25], opacity: [0, 1 - i * 0.2, 1 - i * 0.2] }}
+          transition={{ duration: launch + flight, times: [0, launch / (launch + flight), 1], delay: i * 0.035, ease: "easeIn" }}
+        />
+      ))}
+    </>
+  );
 }
 
 // Deterministic pseudo-random so the burst shape is stable per render.
@@ -220,6 +341,8 @@ function Fireball({ reduced, onDone }: { reduced: boolean; onDone: () => void })
 // rings and sparks → static crackling on the target, then fade.
 
 const HAND = { x: 210, y: 400 };
+// With a portrait, the caster medallion sits just behind the hand point.
+const CASTER = { x: 168, y: 424, r: 50 };
 const TARGET = { x: 790, y: 230 };
 const ELECTRIC = { core: "#ffffff", hot: "#bae6fd", glow: "#38bdf8", deep: "#6366f1" };
 
@@ -279,7 +402,7 @@ function Bolt({
   );
 }
 
-function ShockingGrasp({ reduced, onDone }: { reduced: boolean; onDone: () => void }) {
+function ShockingGrasp({ portrait, reduced, onDone }: { portrait: string; reduced: boolean; onDone: () => void }) {
   const TOTAL = 1.4;
   useEffect(() => {
     const t = setTimeout(onDone, reduced ? 700 : TOTAL * 1000 + 100);
@@ -323,6 +446,8 @@ function ShockingGrasp({ reduced, onDone }: { reduced: boolean; onDone: () => vo
         transition={{ duration: 0.9, times: [0, 0.3, 0.45, 1] }}
       />
       <svg viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet" className="absolute inset-0 size-full">
+        <CasterMedallion id="shock" portrait={portrait} cx={CASTER.x} cy={CASTER.y} r={CASTER.r} total={TOTAL} />
+
         {/* Rune circle at the hand */}
         <motion.g
           style={{ originX: `${HAND.x}px`, originY: `${HAND.y}px`, transformBox: "view-box" }}
@@ -500,6 +625,321 @@ function ShockingGrasp({ reduced, onDone }: { reduced: boolean; onDone: () => vo
           </radialGradient>
         </defs>
       </svg>
+    </>
+  );
+}
+
+// ── Shared: the character as caster (SVG) ─────────────────────────────
+// Portrait medallion that springs in, shimmers as the spell is released and
+// fades at the end. Without a portrait it is just an electric glow, so the
+// spell still has a visible source. `total` is the effect length in seconds.
+function CasterMedallion({
+  id,
+  portrait,
+  cx,
+  cy,
+  r,
+  total,
+  ring = ELECTRIC.hot,
+  aura = `url(#${"caster-aura"})`,
+  releaseAt = 0.3,
+}: {
+  id: string;
+  portrait: string;
+  cx: number;
+  cy: number;
+  r: number;
+  total: number;
+  ring?: string;
+  aura?: string;
+  releaseAt?: number;
+}) {
+  const clip = `${id}-caster-clip`;
+  const origin = { originX: `${cx}px`, originY: `${cy}px`, transformBox: "view-box" as const };
+  return (
+    <motion.g
+      style={origin}
+      initial={{ scale: 0.3, opacity: 0 }}
+      animate={{ scale: [0.3, 1.08, 1, 1, 0.92], opacity: [0, 1, 1, 1, 0] }}
+      transition={{ duration: total, times: [0, 0.14, 0.22, 0.82, 1], ease: "easeOut" }}
+    >
+      <defs>
+        <clipPath id={clip}>
+          <circle cx={cx} cy={cy} r={r} />
+        </clipPath>
+        <radialGradient id="caster-aura">
+          <stop offset="0%" stopColor={ELECTRIC.core} />
+          <stop offset="35%" stopColor={ELECTRIC.hot} />
+          <stop offset="70%" stopColor={ELECTRIC.glow} stopOpacity={0.6} />
+          <stop offset="100%" stopColor={ELECTRIC.deep} stopOpacity={0} />
+        </radialGradient>
+      </defs>
+      <motion.circle
+        cx={cx}
+        cy={cy}
+        r={r + 16}
+        fill={aura}
+        style={origin}
+        animate={{ scale: [0.9, 1.15, 1, 1.1, 1], opacity: [0.4, 0.8, 0.55, 0.7, 0.5] }}
+        transition={{ duration: total, ease: "easeInOut" }}
+      />
+      {portrait ? (
+        <image
+          href={portrait}
+          x={cx - r}
+          y={cy - r}
+          width={r * 2}
+          height={r * 2}
+          preserveAspectRatio="xMidYMid slice"
+          clipPath={`url(#${clip})`}
+        />
+      ) : (
+        <circle cx={cx} cy={cy} r={r * 0.55} fill={ELECTRIC.hot} opacity={0.8} />
+      )}
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke={ring} strokeWidth={3} />
+      <motion.circle
+        cx={cx}
+        cy={cy}
+        r={r}
+        fill={ELECTRIC.glow}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: [0, 0, 0.5, 0, 0.25, 0] }}
+        transition={{
+          duration: releaseAt + 0.5,
+          times: [0, releaseAt, releaseAt + 0.08, releaseAt + 0.2, releaseAt + 0.28, releaseAt + 0.5].map((t) => t / (releaseAt + 0.5)),
+        }}
+      />
+    </motion.g>
+  );
+}
+
+// ── Lightning Bolt ────────────────────────────────────────────────────
+// "A stroke of lightning forming a line 100 feet long and 5 feet wide blasts
+// out from you." Energy gathers into the caster → a beam blasts across the
+// whole screen with lightning cores inside → each creature in the line is hit
+// → flammable things along the line ignite → beam narrows and fades.
+
+const BOLT = { x: 120, y: 330, r: 52 };
+const LINE = { from: BOLT.x + BOLT.r - 4, to: 1060, y: BOLT.y, width: 26 };
+const HITS = [430, 640, 850];
+const FIRES = [300, 520, 740, 930];
+
+function LightningBolt({ portrait, reduced, onDone }: { portrait: string; reduced: boolean; onDone: () => void }) {
+  // Timed to public/sounds/Lightning Bolt.mp3: crackles while charging,
+  // thunder peak at ~0.8s — the beam fires on it.
+  const TOTAL = 2.15;
+  const BLAST = 0.75;
+  useEffect(() => {
+    const t = setTimeout(onDone, reduced ? 700 : TOTAL * 1000 + 100);
+    return () => clearTimeout(t);
+  }, [onDone, reduced]);
+
+  if (reduced) {
+    return (
+      <motion.div
+        className="absolute inset-0"
+        style={{ background: `linear-gradient(90deg, ${ELECTRIC.glow}55, transparent 80%)` }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: [0, 1, 0] }}
+        transition={{ duration: 0.7 }}
+      />
+    );
+  }
+
+  const start = { x: LINE.from, y: LINE.y };
+  const end = { x: LINE.to, y: LINE.y };
+  const cores = [61, 73, 89].map((seed) => boltPath(start, end, seed, 22, 14));
+  const gather = Array.from({ length: 14 }, (_, i) => {
+    const a = rand(i, 71) * Math.PI * 2;
+    const d = 110 + rand(i, 72) * 90;
+    return { x: Math.cos(a) * d, y: Math.sin(a) * d, delay: 0.08 + rand(i, 73) * (BLAST - 0.38) };
+  });
+  const hitSparks = HITS.flatMap((hx, h) =>
+    Array.from({ length: 8 }, (_, i) => {
+      const a = rand(i + h * 10, 81) * Math.PI * 2;
+      const d = 30 + rand(i + h * 10, 82) * 50;
+      return { hx, x: Math.cos(a) * d, y: Math.sin(a) * d, delay: BLAST + 0.1 + h * 0.06 };
+    }),
+  );
+  const beamOrigin = { originX: `${LINE.from}px`, originY: `${LINE.y}px`, transformBox: "view-box" as const };
+
+  return (
+    <>
+      {/* White-blue flash across the screen as the bolt fires */}
+      <motion.div
+        className="absolute inset-0"
+        style={{ background: `linear-gradient(90deg, ${ELECTRIC.hot}66, ${ELECTRIC.glow}33 50%, ${ELECTRIC.deep}22)` }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: [0, 0, 1, 0] }}
+        transition={{ duration: BLAST + 0.45, times: [0, BLAST, BLAST + 0.06, BLAST + 0.45].map((t) => t / (BLAST + 0.45)) }}
+      />
+      <motion.div
+        className="absolute inset-0"
+        // Screen shake on the blast
+        animate={{ x: [0, 0, -9, 8, -5, 3, 0], y: [0, 0, 4, -5, 3, -1, 0] }}
+        transition={{
+          duration: BLAST + 0.4,
+          times: [0, BLAST, BLAST + 0.06, BLAST + 0.13, BLAST + 0.2, BLAST + 0.3, BLAST + 0.4].map((t) => t / (BLAST + 0.4)),
+        }}
+      >
+        <svg viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet" className="absolute inset-0 size-full overflow-visible">
+          <defs>
+            <linearGradient id="bolt-beam" x1="0" x2="1" y1="0" y2="0">
+              <stop offset="0%" stopColor={ELECTRIC.core} />
+              <stop offset="55%" stopColor={ELECTRIC.hot} />
+              <stop offset="100%" stopColor={ELECTRIC.glow} stopOpacity={0.5} />
+            </linearGradient>
+            <radialGradient id="bolt-hit">
+              <stop offset="0%" stopColor={ELECTRIC.core} />
+              <stop offset="45%" stopColor={ELECTRIC.hot} stopOpacity={0.8} />
+              <stop offset="100%" stopColor={ELECTRIC.glow} stopOpacity={0} />
+            </radialGradient>
+            <radialGradient id="bolt-flame" cx="50%" cy="70%">
+              <stop offset="0%" stopColor="#fff3b0" />
+              <stop offset="45%" stopColor="#ffb347" />
+              <stop offset="100%" stopColor="#e63e11" stopOpacity={0} />
+            </radialGradient>
+          </defs>
+
+          {/* Energy gathering into the caster */}
+          {gather.map((g, i) => (
+            <motion.circle
+              key={`g${i}`}
+              cx={BOLT.x}
+              cy={BOLT.y}
+              r={3}
+              fill={ELECTRIC.hot}
+              initial={{ x: g.x, y: g.y, opacity: 0 }}
+              animate={{ x: 0, y: 0, opacity: [0, 1, 0] }}
+              transition={{ duration: 0.38, delay: g.delay, ease: "easeIn" }}
+            />
+          ))}
+
+          {/* The line: a 5-ft-wide beam blasting out to the edge */}
+          <motion.g
+            style={beamOrigin}
+            initial={{ scaleX: 0, scaleY: 1, opacity: 1 }}
+            animate={{ scaleX: [0, 1, 1, 1], scaleY: [1, 1.15, 1, 0], opacity: [1, 1, 0.9, 0] }}
+            transition={{ duration: TOTAL - BLAST, delay: BLAST, times: [0, 0.1, 0.55, 1], ease: "easeOut" }}
+          >
+            <rect x={LINE.from} y={LINE.y - LINE.width * 1.6} width={LINE.to - LINE.from} height={LINE.width * 3.2} fill={ELECTRIC.deep} opacity={0.25} rx={LINE.width} />
+            <rect x={LINE.from} y={LINE.y - LINE.width} width={LINE.to - LINE.from} height={LINE.width * 2} fill={ELECTRIC.glow} opacity={0.45} rx={LINE.width} />
+            <rect x={LINE.from} y={LINE.y - LINE.width / 2} width={LINE.to - LINE.from} height={LINE.width} fill="url(#bolt-beam)" rx={LINE.width / 2} />
+          </motion.g>
+
+          {/* Lightning cores flickering inside the beam */}
+          {cores.map((d, i) => {
+            const f = flicker(BLAST + 0.02, [i * 0.05, 0.16 + i * 0.05, 0.36 + i * 0.05, 0.6 + i * 0.04], TOTAL);
+            return (
+              <Bolt
+                key={`c${i}`}
+                d={d}
+                width={i === 0 ? 3.5 : 2.2}
+                core={ELECTRIC.core}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: f.opacity }}
+                transition={{ duration: TOTAL, times: f.times, ease: "linear" }}
+              />
+            );
+          })}
+
+          {/* Each creature in the line is struck */}
+          {HITS.map((hx, h) => {
+            const o = { originX: `${hx}px`, originY: `${LINE.y}px`, transformBox: "view-box" as const };
+            const delay = BLAST + 0.06 + h * 0.06;
+            return (
+              <g key={`hit${h}`}>
+                <motion.circle
+                  cx={hx}
+                  cy={LINE.y}
+                  r={46}
+                  fill="url(#bolt-hit)"
+                  style={o}
+                  initial={{ scale: 0.2, opacity: 0 }}
+                  animate={{ scale: [0.2, 1.5, 1.9], opacity: [0, 1, 0] }}
+                  transition={{ duration: 0.45, delay, ease: "easeOut" }}
+                />
+                <motion.circle
+                  cx={hx}
+                  cy={LINE.y}
+                  r={30}
+                  fill="none"
+                  stroke={ELECTRIC.glow}
+                  strokeWidth={2.5}
+                  style={o}
+                  initial={{ scale: 0.4, opacity: 0 }}
+                  animate={{ scale: 2.8, opacity: [0, 0.9, 0] }}
+                  transition={{ duration: 0.55, delay: delay + 0.04, ease: "easeOut" }}
+                />
+                {[0, 1].map((k) => {
+                  const arc = arcAround({ x: hx, y: LINE.y }, 90 + h * 7 + k, 52);
+                  const f = flicker(delay + 0.12 + k * 0.08, [0, 0.2], TOTAL);
+                  return (
+                    <Bolt
+                      key={k}
+                      d={arc}
+                      width={1.6}
+                      core={ELECTRIC.hot}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: f.opacity }}
+                      transition={{ duration: TOTAL, times: f.times, ease: "linear" }}
+                    />
+                  );
+                })}
+              </g>
+            );
+          })}
+          {hitSparks.map((p, i) => (
+            <motion.circle
+              key={`sp${i}`}
+              cx={p.hx}
+              cy={LINE.y}
+              r={2.4}
+              fill={ELECTRIC.hot}
+              initial={{ x: 0, y: 0, opacity: 0 }}
+              animate={{ x: p.x, y: p.y, opacity: [0, 1, 0] }}
+              transition={{ duration: 0.5, delay: p.delay, ease: "easeOut" }}
+            />
+          ))}
+
+          {/* Flammable things along the line catch fire */}
+          {FIRES.map((fx, i) => {
+            const fy = LINE.y + (i % 2 ? 34 : -30);
+            const o = { originX: `${fx}px`, originY: `${fy + 14}px`, transformBox: "view-box" as const };
+            const delay = BLAST + 0.3 + i * 0.07;
+            return (
+              <g key={`f${i}`}>
+                <motion.ellipse
+                  cx={fx}
+                  cy={fy}
+                  rx={14}
+                  ry={22}
+                  fill="url(#bolt-flame)"
+                  style={o}
+                  initial={{ scaleY: 0, opacity: 0 }}
+                  animate={{ scaleY: [0, 1.1, 0.85, 1.05, 0.9, 0], scaleX: [1, 0.9, 1.05, 0.92, 1, 0.8], opacity: [0, 1, 1, 1, 0.8, 0] }}
+                  transition={{ duration: TOTAL - delay, delay, ease: "easeInOut" }}
+                />
+                {[0, 1, 2].map((k) => (
+                  <motion.circle
+                    key={k}
+                    cx={fx + (rand(i * 3 + k, 95) - 0.5) * 16}
+                    cy={fy}
+                    r={1.8}
+                    fill="#ffd23f"
+                    initial={{ y: 0, opacity: 0 }}
+                    animate={{ y: -40 - rand(i * 3 + k, 96) * 30, opacity: [0, 1, 0] }}
+                    transition={{ duration: 0.8, delay: delay + 0.15 + k * 0.12, ease: "easeOut" }}
+                  />
+                ))}
+              </g>
+            );
+          })}
+
+          {/* The caster */}
+          <CasterMedallion id="bolt" portrait={portrait} cx={BOLT.x} cy={BOLT.y} r={BOLT.r} total={TOTAL} releaseAt={BLAST} />
+        </svg>
+      </motion.div>
     </>
   );
 }

@@ -642,7 +642,7 @@ export default function SheetClient({
   const overlays = (
     <>
       {/* The 3D dice overlay is created by lib/diceBox on <body>, outside React. */}
-      <SpellFxLayer />
+      <SpellFxLayer portrait={s(data.portrait)} />
       <DiceTray
         custom={(data.customDice as string[] | undefined) ?? []}
         onCustomChange={(customDice) => set({ customDice })}
