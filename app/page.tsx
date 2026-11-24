@@ -38,6 +38,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Zh } from "@/components/Zh";
+import { SubclassSelect } from "@/components/SubclassSelect";
 import {
   ABILITIES,
   ABILITY_NAMES,
@@ -335,7 +336,7 @@ function CreateDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-2">
               <Label>Class</Label>
-              <Select value={className} onValueChange={(v) => { setClassName(v ?? "Wizard"); setSkills([]); }}>
+              <Select value={className} onValueChange={(v) => { setClassName(v ?? "Wizard"); setSkills([]); setSubclass(""); }}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -350,7 +351,14 @@ function CreateDialog({
             </div>
             <div className="grid gap-2">
               <Label htmlFor="cc-sub">Subclass</Label>
-              <Input id="cc-sub" value={subclass} onChange={(e) => setSubclass(e.target.value)} placeholder="Optional" />
+              {/* key: a new class starts the dropdown fresh */}
+              <SubclassSelect
+                key={className}
+                id="cc-sub"
+                className={className}
+                value={subclass}
+                onChange={setSubclass}
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="cc-race">Race</Label>
