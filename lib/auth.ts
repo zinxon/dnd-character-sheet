@@ -1,5 +1,7 @@
 import { betterAuth } from "better-auth";
-import { Pool } from "pg";
+import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { db } from "@/db";
+import * as schema from "@/db/schema";
 
 // Google sign-in is enabled only once GOOGLE_CLIENT_ID and
 // GOOGLE_CLIENT_SECRET are set (Vercel env / .env.local), so the app
@@ -9,9 +11,9 @@ const googleEnabled = Boolean(
 );
 
 export const auth = betterAuth({
-  database: new Pool({
-    connectionString: process.env.DATABASE_URL,
-  }),
+  // Same Drizzle client as the app. Neon's HTTP driver has no interactive
+  // transactions, so leave the adapter's `transaction` option off.
+  database: drizzleAdapter(db, { provider: "pg", schema }),
   socialProviders: googleEnabled
     ? {
         google: {

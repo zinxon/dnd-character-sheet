@@ -1,51 +1,31 @@
-import { Pool } from "pg";
+// Character storage (Drizzle ORM on Neon). Rows belong to their owner; the
+// seed owner 'zinxon' is visible to everyone until claimed on first open.
 
-// Single shared pool for the Neon database (also used by Better Auth).
-const globalForDb = globalThis as unknown as { _dndPool?: Pool };
+import { and, asc, eq, or } from "drizzle-orm";
+import { db } from "@/db";
+import { characters, type Character } from "@/db/schema";
 
-export const pool =
-  globalForDb._dndPool ??
-  new Pool({ connectionString: process.env.DATABASE_URL });
+export type CharacterRow = Character;
 
-if (process.env.NODE_ENV !== "production") globalForDb._dndPool = pool;
-
-export type CharacterRow = {
-  id: string;
-  owner: string;
-  name: string;
-  data: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
-};
+const SEED_OWNER = "zinxon";
+const visibleTo = (owner: string) => or(eq(characters.owner, owner), eq(characters.owner, SEED_OWNER));
 
 export async function listCharacters(owner: string): Promise<CharacterRow[]> {
-  const { rows } = await pool.query(
-    `select id, owner, name, data, created_at, updated_at from characters
-     where owner = $1 or owner = 'zinxon' order by created_at asc`,
-    [owner],
-  );
-  return rows;
+  return db.select().from(characters).where(visibleTo(owner)).orderBy(asc(characters.createdAt));
 }
 
-export async function getCharacter(
-  id: string,
-  owner: string,
-): Promise<CharacterRow | null> {
-  const { rows } = await pool.query(
-    `select id, owner, name, data, created_at, updated_at from characters
-     where id = $1 and (owner = $2 or owner = 'zinxon')`,
-    [id, owner],
-  );
-  return rows[0] ?? null;
+export async function getCharacter(id: string, owner: string): Promise<CharacterRow | null> {
+  const [row] = await db
+    .select()
+    .from(characters)
+    .where(and(eq(characters.id, id), visibleTo(owner)))
+    .limit(1);
+  return row ?? null;
 }
 
-// The seeded rows carry owner 'zinxon'; the first signed-in user claims them.
 export async function claimIfSeeded(row: CharacterRow, owner: string) {
-  if (row.owner === "zinxon" && owner !== "zinxon") {
-    await pool.query(`update characters set owner = $1 where id = $2`, [
-      owner,
-      row.id,
-    ]);
+  if (row.owner === SEED_OWNER && owner !== SEED_OWNER) {
+    await db.update(characters).set({ owner }).where(eq(characters.id, row.id));
     row.owner = owner;
   }
   return row;
@@ -56,12 +36,8 @@ export async function createCharacter(
   name: string,
   data: Record<string, unknown>,
 ): Promise<CharacterRow> {
-  const { rows } = await pool.query(
-    `insert into characters (owner, name, data) values ($1, $2, $3)
-     returning id, owner, name, data, created_at, updated_at`,
-    [owner, name, JSON.stringify(data)],
-  );
-  return rows[0];
+  const [row] = await db.insert(characters).values({ owner, name, data }).returning();
+  return row;
 }
 
 export async function updateCharacter(
@@ -70,21 +46,18 @@ export async function updateCharacter(
   data: Record<string, unknown>,
 ): Promise<boolean> {
   const name = typeof data.charname === "string" ? data.charname : undefined;
-  const res = await pool.query(
-    `update characters set data = $1, name = coalesce($2, name), updated_at = now()
-     where id = $3 and (owner = $4 or owner = 'zinxon')`,
-    [JSON.stringify(data), name ?? null, id, owner],
-  );
-  return (res.rowCount ?? 0) > 0;
+  const rows = await db
+    .update(characters)
+    .set({ data, ...(name !== undefined && { name }), updatedAt: new Date().toISOString() })
+    .where(and(eq(characters.id, id), visibleTo(owner)))
+    .returning({ id: characters.id });
+  return rows.length > 0;
 }
 
-export async function deleteCharacter(
-  id: string,
-  owner: string,
-): Promise<boolean> {
-  const res = await pool.query(
-    `delete from characters where id = $1 and (owner = $2 or owner = 'zinxon')`,
-    [id, owner],
-  );
-  return (res.rowCount ?? 0) > 0;
+export async function deleteCharacter(id: string, owner: string): Promise<boolean> {
+  const rows = await db
+    .delete(characters)
+    .where(and(eq(characters.id, id), visibleTo(owner)))
+    .returning({ id: characters.id });
+  return rows.length > 0;
 }

@@ -16,7 +16,7 @@ export async function GET() {
       hpcur: r.data.hpcur ?? "",
       hpmax: r.data.hpmax ?? "",
       portrait: typeof r.data.portrait === "string" ? r.data.portrait : "",
-      updatedAt: r.updated_at,
+      updatedAt: r.updatedAt,
     })),
   );
 }

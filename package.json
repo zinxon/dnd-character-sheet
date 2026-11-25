@@ -7,13 +7,18 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "postinstall": "node -e \"require('fs').cpSync('node_modules/@3d-dice/dice-box/dist/assets','public/assets/dice-box',{recursive:true})\""
+    "postinstall": "node -e \"require('fs').cpSync('node_modules/@3d-dice/dice-box/dist/assets','public/assets/dice-box',{recursive:true})\"",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@3d-dice/dice-box": "^1.1.4",
     "@base-ui/react": "^1.9.0",
     "@better-auth-ui/core": "^1.7.34",
     "@better-auth-ui/react": "^1.7.34",
+    "@neondatabase/serverless": "^1.2.1",
     "@tanstack/react-form": "^1.33.5",
     "@tanstack/react-query": "^5.108.4",
     "@ui-sdk/core": "^0.1.0-beta.16",
@@ -22,6 +27,7 @@
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.2",
     "date-fns": "^4.4.0",
+    "drizzle-orm": "^0.45.4",
     "lucide-react": "^1.78.0",
     "motion": "^14.14.0",
     "next": "^16.4.6",
@@ -40,6 +46,8 @@
     "@types/pg": "^8.23.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "dotenv": "^18.0.10",
+    "drizzle-kit": "^0.31.11",
     "tailwindcss": "^4.3.5",
     "typescript": "^7.0.2"
   }
